@@ -7,13 +7,13 @@ Desktop configuration package for FluorineOS 0.0.1.
 - Hyprland 0.55+ native Lua configuration
 - Waybar, Kitty, Fuzzel, and SwayNotificationCenter themes
 - hypridle and hyprlock configuration
-- start-hyprland session wrapper for greetd
+- Hyprland session entry through the upstream start-hyprland wrapper
 - flr-* CLI utilities: flr-shot, flr-keys, flr-doctor
 
 ## Package
 
 - Name: fluorine-desktop
-- Version: 0.0.2
+- Version: 0.0.3
 - Architecture: all
 
 ## Build

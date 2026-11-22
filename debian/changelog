@@ -1,3 +1,11 @@
+fluorine-desktop (0.0.3) trixie; urgency=medium
+
+  * Drop /usr/bin/start-hyprland. The hyprland package in trixie-backports
+    already installs that wrapper, so shipping a second copy caused a dpkg
+    file conflict that made the package uninstallable.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Sun, 22 Nov 2026 19:30:00 +0530
+
 fluorine-desktop (0.0.2) trixie; urgency=medium
 
   * Ship start-hyprland so greetd launches the FluorineOS session through a
