@@ -1,0 +1,87 @@
+/* FluorineOS 0.0.1 SwayNotificationCenter theme. */
+
+* {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+}
+
+.control-center {
+    background: #0a0d10;
+    border: 1px solid #1c2229;
+    border-radius: 6px;
+    color: #e2e8f0;
+}
+
+.control-center-list {
+    background: transparent;
+}
+
+.notification-row {
+    background: transparent;
+}
+
+.notification {
+    background: #0a0d10;
+    border: 1px solid #1c2229;
+    border-radius: 6px;
+    color: #e2e8f0;
+    padding: 8px;
+}
+
+.notification-content {
+    background: transparent;
+    padding: 4px;
+}
+
+.notification-default-action:hover {
+    background: #2a3812;
+}
+
+.summary {
+    color: #e2e8f0;
+    font-weight: bold;
+}
+
+.body {
+    color: #6e7681;
+}
+
+.close-button {
+    background: transparent;
+    color: #6e7681;
+}
+
+.critical {
+    border: 1px solid #f85149;
+}
+
+.widget-title {
+    color: #e2e8f0;
+    font-weight: bold;
+}
+
+.widget-title button {
+    background: #0a0d10;
+    border: 1px solid #1c2229;
+    border-radius: 6px;
+    color: #b4f03a;
+}
+
+.widget-dnd {
+    color: #e2e8f0;
+}
+
+.widget-dnd > switch {
+    background: #1c2229;
+    border-radius: 6px;
+}
+
+.widget-dnd > switch:checked {
+    background: #b4f03a;
+}
+
+.widget-mpris {
+    background: #0a0d10;
+    border: 1px solid #1c2229;
+    border-radius: 6px;
+}

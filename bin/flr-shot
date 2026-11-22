@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-shot"
+readonly output_dir="${HOME}/Pictures/Screenshots"
+
+usage() {
+    printf 'Usage: %s [--full]\n\n' "${program}"
+    printf 'Capture the full screen with --full, or select a region interactively.\n'
+    printf 'The PNG is written to %s and copied to the clipboard.\n' "${output_dir}"
+}
+
+die() {
+    printf '%s: %s\n' "${program}" "$*" >&2
+    exit 1
+}
+
+mode="region"
+case "${1:-}" in
+    --full)
+        mode="full"
+        ;;
+    "")
+        ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac
+
+for tool in grim wl-copy notify-send; do
+    command -v "${tool}" >/dev/null 2>&1 || die "required tool not found: ${tool}"
+done
+
+mkdir -p "${output_dir}"
+
+timestamp="$(date +%Y%m%d-%H%M%S)"
+output="${output_dir}/fluorine-${timestamp}.png"
+
+if [[ "${mode}" == "full" ]]; then
+    grim "${output}"
+else
+    command -v slurp >/dev/null 2>&1 || die "required tool not found: slurp"
+
+    geometry=""
+    if ! geometry="$(slurp)"; then
+        die "region selection cancelled"
+    fi
+    if [[ -z "${geometry}" ]]; then
+        die "region selection cancelled"
+    fi
+
+    grim -g "${geometry}" "${output}"
+fi
+
+wl-copy <"${output}"
+notify-send --app-name="${program}" "Screenshot saved" "${output}"
+
+printf '%s\n' "${output}"

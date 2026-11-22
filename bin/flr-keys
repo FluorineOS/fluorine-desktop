@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-keys"
+readonly prompt="Keys > "
+
+usage() {
+    printf 'Usage: %s\n\n' "${program}"
+    printf 'List the active Hyprland keybinds in a searchable fuzzel menu.\n'
+}
+
+die() {
+    printf '%s: %s\n' "${program}" "$*" >&2
+    exit 1
+}
+
+case "${1:-}" in
+    "")
+        ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac
+
+for tool in hyprctl jq fuzzel; do
+    command -v "${tool}" >/dev/null 2>&1 || die "required tool not found: ${tool}"
+done
+
+# Hyprland reports modifiers as a bitmask. Decode the bits into names so the
+# menu reads like a normal keybind list. The filter below is a jq program, so
+# its $mask and $value parameters must not be expanded by the shell.
+# shellcheck disable=SC2016
+readonly jq_filter='
+def bit($mask; $value): (($mask / $value) | floor) % 2 == 1;
+def mods:
+    (if bit(.modmask; 1) then "SHIFT + " else "" end)
+    + (if bit(.modmask; 2) then "CAPS + " else "" end)
+    + (if bit(.modmask; 4) then "CTRL + " else "" end)
+    + (if bit(.modmask; 8) then "ALT + " else "" end)
+    + (if bit(.modmask; 16) then "MOD2 + " else "" end)
+    + (if bit(.modmask; 32) then "MOD3 + " else "" end)
+    + (if bit(.modmask; 64) then "SUPER + " else "" end)
+    + (if bit(.modmask; 128) then "MOD5 + " else "" end);
+.[]
+| [(mods + .key), .dispatcher, (.arg // "")]
+| @tsv
+'
+
+selection=""
+if ! selection="$(hyprctl binds -j | jq -r "${jq_filter}" | fuzzel --dmenu --prompt="${prompt}")"; then
+    exit 0
+fi
+
+if [[ -z "${selection}" ]]; then
+    exit 0
+fi
+
+printf '%s\n' "${selection}"

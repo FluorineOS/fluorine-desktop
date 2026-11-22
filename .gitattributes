@@ -1,0 +1,3 @@
+# FluorineOS ships Linux sources. Keep line endings stable so shell scripts
+# and debian/rules never pick up CRLF from a Windows checkout.
+* text=auto eol=lf
