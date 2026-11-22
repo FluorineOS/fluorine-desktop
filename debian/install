@@ -1,2 +1,2 @@
 skel/.config/* etc/skel/.config/
-bin/* usr/local/bin/
+bin/* usr/bin/
