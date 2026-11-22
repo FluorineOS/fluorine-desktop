@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Launch the FluorineOS Hyprland session.
+#
+# greetd hands the logged-in user straight to this wrapper. It establishes the
+# Wayland session environment a display manager login would normally set, then
+# replaces itself with the compositor so the session runs as a single process.
+set -euo pipefail
+
+readonly program="start-hyprland"
+
+if ! command -v Hyprland >/dev/null 2>&1; then
+    printf '%s: Hyprland is not installed\n' "${program}" >&2
+    exit 1
+fi
+
+if [[ -z "${XDG_RUNTIME_DIR:-}" ]]; then
+    printf '%s: XDG_RUNTIME_DIR is unset; start the session through greetd\n' "${program}" >&2
+    exit 1
+fi
+
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=Hyprland
+export XDG_CURRENT_DESKTOP=Hyprland
+export XDG_SESSION_CLASS=user
+export GDK_BACKEND=wayland
+export QT_QPA_PLATFORM=wayland
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export MOZ_ENABLE_WAYLAND=1
+export ELECTRON_OZONE_PLATFORM_HINT=auto
+export SDL_VIDEODRIVER=wayland
+export _JAVA_AWT_WM_NONREPARENTING=1
+
+exec Hyprland "$@"

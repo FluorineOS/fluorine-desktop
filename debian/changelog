@@ -1,3 +1,10 @@
+fluorine-desktop (0.0.2) trixie; urgency=medium
+
+  * Ship start-hyprland so greetd launches the FluorineOS session through a
+    wrapper instead of calling Hyprland directly.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Sun, 22 Nov 2026 18:30:00 +0530
+
 fluorine-desktop (0.0.1) trixie; urgency=medium
 
   * Initial release.

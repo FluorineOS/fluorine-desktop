@@ -17,8 +17,8 @@ Description: FluorineOS AMOLED Hyprland desktop environment
  .
  The package installs the native Lua compositor configuration, Waybar,
  Kitty, Fuzzel, and SwayNotificationCenter themes, hypridle and hyprlock
- OLED burn-in protection, and the flr-shot, flr-keys, and flr-doctor
- command line utilities.
+ OLED burn-in protection, the start-hyprland greetd session wrapper, and the
+ flr-shot, flr-keys, and flr-doctor command line utilities.
  .
  Configuration is installed into /etc/skel/.config so that newly created
  users receive the FluorineOS desktop on first login.
