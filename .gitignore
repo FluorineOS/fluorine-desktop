@@ -10,3 +10,10 @@ debian/tmp/
 
 # Local and editor noise
 .DS_Store
+
+# Build artifacts
+debian/debhelper-build-stamp
+debian/fluorine-desktop/
+/fluorine-desktop_*.deb
+/fluorine-desktop_*.buildinfo
+/fluorine-desktop_*.changes
