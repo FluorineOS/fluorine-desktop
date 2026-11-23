@@ -51,7 +51,7 @@ present, which is the normal case in a virtual machine.
 | Field | Value |
 | --- | --- |
 | Name | `fluorine-desktop` |
-| Version | `0.1.0` |
+| Version | `0.1.1` |
 | Architecture | `all` |
 
 Runtime dependencies are declared by the package: `hyprland`, `hypridle`, `hyprlock`,
@@ -81,5 +81,7 @@ dpkg-deb -c ../fluorine-desktop_0.1.0_all.deb
 The built `.deb` is written to the parent directory.
 
 ## License
+
+Released under the MIT License. See [LICENSE](LICENSE) for the full text.
 
 Source: [FluorineOS/fluorine-desktop](https://github.com/FluorineOS/fluorine-desktop)
