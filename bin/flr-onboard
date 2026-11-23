@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-onboard"
+readonly state_root="${XDG_STATE_HOME:-${HOME}/.local/state}"
+readonly state_dir="${state_root}/fluorine"
+readonly marker="${state_dir}/onboarded"
+
+usage() {
+    printf 'Usage: %s\n\n' "${program}"
+    printf 'Show the keybinding cheat sheet on the first interactive login.\n'
+}
+
+case "${1:-}" in
+    "")
+        ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac
+
+# Only a graphical Hyprland session counts as an interactive login.
+if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+    exit 0
+fi
+
+# Every later login starts on an empty workspace.
+if [[ -e "${marker}" ]]; then
+    exit 0
+fi
+
+mkdir -p "${state_dir}"
+: >"${marker}"
+
+if command -v flr-keys >/dev/null 2>&1; then
+    flr-keys || true
+fi

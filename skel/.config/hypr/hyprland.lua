@@ -1,4 +1,4 @@
--- FluorineOS 0.0.1 Hyprland configuration.
+-- FluorineOS 0.1.0 Hyprland configuration.
 --
 -- Native Hyprland 0.55+ Lua API. Deprecated hyprlang directives and removed
 -- 0.54 options are not used anywhere in this file.
@@ -95,6 +95,10 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("lxpolkit")
     hl.exec_cmd("hypridle")
     hl.exec_cmd("swaybg -c '#000000'")
+    -- Clipboard history: cliphist stores every text and image selection.
+    hl.exec_cmd("wl-paste --watch cliphist store")
+    -- First interactive login shows the keybinding cheat sheet once.
+    hl.exec_cmd("flr-onboard")
 end)
 
 ----------------------
@@ -112,7 +116,28 @@ hl.bind(mainMod .. " + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ action = "toggle" }))
 
 -- Session
+-- hypridle also locks after 10 minutes of inactivity; both paths use the
+-- same lock screen.
 hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("hyprlock"))
+
+-- Clipboard history: pick a stored entry, decode it, and put it back on the
+-- clipboard so SUPER + V pastes it.
+hl.bind(mainMod .. " + C", hl.dsp.exec_cmd(
+    "sh -c 'cliphist list | fuzzel --dmenu --prompt=Clip: | cliphist decode | wl-copy'"))
+
+-- Hardware media keys. wpctl addresses the default sink and source, so the
+-- bindings follow the active output and microphone.
+hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+"))
+hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"))
+hl.bind("XF86AudioMute",        hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"))
+hl.bind("XF86AudioMicMute",     hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"))
+
+-- Brightness keys. Virtual machines and desktops without a backlight have no
+-- brightness device, so both bindings discard the error and change nothing.
+hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd(
+    "sh -c 'brightnessctl -q set 5%+ 2>/dev/null || true'"))
+hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(
+    "sh -c 'brightnessctl -q set 5%- 2>/dev/null || true'"))
 
 -- FluorineOS utilities
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd("flr-shot"))

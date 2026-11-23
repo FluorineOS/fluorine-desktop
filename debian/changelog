@@ -1,3 +1,18 @@
+fluorine-desktop (0.1.0) trixie; urgency=medium
+
+  * Add daily-driver workstation ergonomics.
+  * hypridle now dims the panel at 5 minutes, locks the session at
+    10 minutes, and suspends after 20 minutes only while on battery.
+  * Bind the hardware volume, mute, microphone mute, and brightness keys to
+    wpctl and brightnessctl, with silent fallback when no backlight exists.
+  * Store clipboard history with cliphist and add SUPER + C to pick an entry
+    and copy it back to the clipboard.
+  * Run the flr-keys cheat sheet once on the first interactive login and
+    record a marker under ~/.local/state/fluorine.
+  * Declare cliphist, brightnessctl, and wireplumber as runtime dependencies.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Mon, 23 Nov 2026 19:45:00 +0530
+
 fluorine-desktop (0.0.3) trixie; urgency=medium
 
   * Drop /usr/bin/start-hyprland. The hyprland package in trixie-backports

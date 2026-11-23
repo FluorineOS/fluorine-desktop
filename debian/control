@@ -9,16 +9,18 @@ Rules-Requires-Root: no
 Package: fluorine-desktop
 Architecture: all
 Depends: hyprland, hypridle, hyprlock, waybar, kitty, fuzzel,
- sway-notification-center, swaybg, grim, slurp, wl-clipboard, jq,
- libnotify-bin
+ sway-notification-center, swaybg, grim, slurp, wl-clipboard, cliphist,
+ brightnessctl, wireplumber, jq, libnotify-bin
 Description: FluorineOS AMOLED Hyprland desktop environment
  FluorineOS desktop configuration for Hyprland 0.55 and later, built on a
  pure AMOLED black base with a reactive lime accent.
  .
  The package installs the native Lua compositor configuration, Waybar,
- Kitty, Fuzzel, and SwayNotificationCenter themes, hypridle and hyprlock
- OLED burn-in protection, and the flr-shot, flr-keys, and flr-doctor command
- line utilities.
+ Kitty, Fuzzel, and SwayNotificationCenter themes, the hypridle idle policy
+ and hyprlock lock screen, hardware media and brightness key bindings,
+ cliphist clipboard history, and the flr-shot, flr-keys, flr-doctor, and
+ flr-onboard command line utilities.
  .
  Configuration is installed into /etc/skel/.config so that newly created
- users receive the FluorineOS desktop on first login.
+ users receive the FluorineOS desktop on first login. The first interactive
+ login shows the keybinding cheat sheet once.
