@@ -1,4 +1,4 @@
--- FluorineOS 0.1.0 Hyprland configuration.
+-- FluorineOS 0.1.1 Hyprland configuration.
 --
 -- Native Hyprland 0.55+ Lua API. Deprecated hyprlang directives and removed
 -- 0.54 options are not used anywhere in this file.
@@ -61,7 +61,49 @@ hl.config({
         disable_hyprland_logo   = true,
         force_default_wallpaper = 0,
     },
+
+    -- Legacy X11 clients keep a 1:1 pixel scale, so they stay crisp on
+    -- fractional-scaled outputs instead of being bitmap-scaled by XWayland.
+    xwayland = {
+        force_zero_scaling = true,
+    },
 })
+
+---------------------------
+---- ENVIRONMENT VARS -----
+---------------------------
+
+-- Qt 6 applications use the qt6ct palette that fluorine-artwork installs, so
+-- they get the AMOLED Void surfaces and lime accent instead of a light theme.
+hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
+
+-- Electron and Chromium clients select their Wayland backend automatically
+-- rather than falling back to XWayland.
+hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
+
+-- Cursor theme and size, shared by Wayland and XWayland clients.
+hl.env("XCURSOR_THEME", "Adwaita")
+hl.env("XCURSOR_SIZE", "24")
+hl.env("HYPRCURSOR_SIZE", "24")
+
+---------------
+---- MONITORS --
+---------------
+
+-- Fallback rule for every output that has no explicit rule: preferred mode,
+-- automatic placement, unity scale. Hyprland applies the closest matching
+-- rule per display, so this covers internal and external panels alike.
+hl.monitor({
+    output   = "",
+    mode     = "preferred",
+    position = "auto",
+    scale    = 1,
+})
+
+-- HiDPI panels: replace the fallback above with one of these, then adjust any
+-- legacy application that draws too small.
+-- hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1.25 })
+-- hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1.5 })
 
 --------------------
 ---- ANIMATIONS ----

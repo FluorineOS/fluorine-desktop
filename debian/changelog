@@ -1,3 +1,15 @@
+fluorine-desktop (0.1.1) trixie; urgency=medium
+
+  * Export QT_QPA_PLATFORMTHEME=qt6ct and ELECTRON_OZONE_PLATFORM_HINT=auto
+    from the Hyprland session so Qt and Electron clients run natively on
+    Wayland with the fluorine-artwork palettes.
+  * Set XCURSOR_THEME, XCURSOR_SIZE, and HYPRCURSOR_SIZE for crisp cursors.
+  * Announce every output with preferred mode, automatic placement, and
+    scale 1, with commented 1.25 and 1.5 fractional examples.
+  * Enable xwayland force_zero_scaling so legacy clients stay pixel-crisp.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Mon, 23 Nov 2026 20:12:00 +0530
+
 fluorine-desktop (0.1.0) trixie; urgency=medium
 
   * Add daily-driver workstation ergonomics.
