@@ -60,12 +60,27 @@ Runtime dependencies are declared by the package: `hyprland`, `hypridle`, `hyprl
 
 ## Install
 
-The FluorineOS APT repository is configured by `fluorine-keyring`. After it is installed:
+The FluorineOS APT repository is configured by `fluorine-keyring`. Hyprland and its
+companion tools come from `trixie-backports`, so enable that suite and pin it before
+installing. Without the pin, the `libxkbcommon` versions required by Hyprland are held at
+the `trixie` release and the install fails to resolve.
 
 ```sh
+echo 'deb http://deb.debian.org/debian trixie-backports main' \
+  | sudo tee /etc/apt/sources.list.d/trixie-backports.list
+
+sudo tee /etc/apt/preferences.d/fluorineos-backports.pref >/dev/null <<'EOF'
+Package: hyprland* hypridle* hyprlock* libaquamarine* libhypr* xdg-desktop-portal-hyprland wayland-protocols libxkbcommon* libxkbregistry0
+Pin: release n=trixie-backports
+Pin-Priority: 900
+EOF
+
 sudo apt-get update
 sudo apt-get install fluorine-desktop
 ```
+
+Verify the selection before installing with `apt-cache policy hyprland libxkbcommon0`. Both
+candidates must come from `trixie-backports`.
 
 ## Build
 
@@ -75,7 +90,7 @@ Requires `dpkg-dev` and `debhelper` on Debian 13 `amd64`.
 git clone https://github.com/FluorineOS/fluorine-desktop.git
 cd fluorine-desktop
 dpkg-buildpackage -us -uc -b
-dpkg-deb -c ../fluorine-desktop_0.1.0_all.deb
+dpkg-deb -c ../fluorine-desktop_0.1.2_all.deb
 ```
 
 The built `.deb` is written to the parent directory.
