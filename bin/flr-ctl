@@ -7,8 +7,8 @@ readonly prompt="System > "
 usage() {
     printf 'Usage: %s\n\n' "${program}"
     printf 'Open the FluorineOS system menu in Fuzzel. Network, Bluetooth, display,\n'
-    printf 'audio, power, diagnostics, and session actions are reachable from the\n'
-    printf 'keyboard alone.\n'
+    printf 'audio, power, snapshots, diagnostics, and session actions are reachable\n'
+    printf 'from the keyboard alone.\n'
 }
 
 die() {
@@ -108,13 +108,14 @@ entries=(
     "${power_entry}"
     "Keybinding Cheatsheet"
     "System Diagnostics"
+    "Snapshots"
     "Lock Session"
     "Suspend"
     "Reboot"
     "Shut Down"
 )
 
-selection="$(printf '%s\n' "${entries[@]}" | fuzzel --dmenu --prompt "${prompt}" --lines 11 --width 38)" || exit 0
+selection="$(printf '%s\n' "${entries[@]}" | fuzzel --dmenu --prompt "${prompt}" --lines 12 --width 38)" || exit 0
 
 case "${selection}" in
     "Network Settings")
@@ -144,6 +145,9 @@ case "${selection}" in
         ;;
     "System Diagnostics")
         launch_persistent_tui flr-doctor
+        ;;
+    "Snapshots")
+        launch_persistent_tui "flr-snapshot list"
         ;;
     "Lock Session")
         exec hyprlock

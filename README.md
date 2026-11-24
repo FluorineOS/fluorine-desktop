@@ -33,6 +33,7 @@
 | `/usr/bin/flr-power` | Power profile status and cycling for Waybar |
 | `/usr/bin/flr-ctl` | Unified Fuzzel system menu |
 | `/usr/bin/flr-update` | APT refresh, upgrade summary, and reboot report |
+| `/usr/bin/flr-snapshot` | Btrfs snapshot create, list, and rollback |
 
 ## Desktop Behavior
 
@@ -65,13 +66,22 @@ unavailable instead of failing.
 
 `flr-ctl` collects the hardware and session actions in one Fuzzel menu: network settings
 through `nmtui`, the Bluetooth manager, `wdisplays`, the audio mixer, power profile cycling,
-the keybinding cheatsheet, `flr-doctor` in a persistent terminal, and lock, suspend, reboot,
-and shutdown. The Waybar SYS indicator opens the same menu, and a right click runs
+the keybinding cheatsheet, `flr-doctor` in a persistent terminal, the snapshot list in a
+persistent terminal, and lock, suspend, reboot, and shutdown. The Waybar SYS indicator opens the same menu, and a right click runs
 `flr-update` in a terminal.
 
 `flr-update` refreshes APT metadata, lists the incoming FluorineOS and security packages,
 runs the upgrade, and reports whether `/var/run/reboot-required` was written. `flr-update
---check` performs the refresh and listing without installing anything.
+--check` performs the refresh and listing without installing anything. When `/` is on
+Btrfs, it creates a `pre-update` snapshot through `flr-snapshot` before applying the
+upgrade, and prints the rollback command afterwards.
+
+`flr-snapshot` drives snapper on the `root` configuration: `create [label]` writes a
+read-only snapshot and refreshes the GRUB menu when a snapshot generator is installed,
+`list` prints an aligned table of ids, timestamps, and descriptions, and
+`rollback <id>` sets an earlier snapshot as the default root subvolume and prints the
+reboot steps. Installations created by Calamares mount `@`, `@home`, and `@snapshots`, so
+a rollback replaces the system subvolume without touching `/home` or the snapshot store.
 
 `kanshi` watches output events. The shipped profile matches every output, keeping the
 preferred mode, automatic placement, and unity scale, so docking and undocking do not
@@ -86,14 +96,15 @@ present, which is the normal case in a virtual machine.
 | Field | Value |
 | --- | --- |
 | Name | `fluorine-desktop` |
-| Version | `0.3.0` |
+| Version | `0.4.0` |
 | Architecture | `all` |
 
 Runtime dependencies are declared by the package: `hyprland`, `hypridle`, `hyprlock`,
 `waybar`, `kitty`, `fuzzel`, `sway-notification-center`, `swaybg`, `grim`, `slurp`,
 `wl-clipboard`, `cliphist`, `brightnessctl`, `wireplumber`, `jq`, `libnotify-bin`,
 `network-manager`, `bluez`, `blueman`, `power-profiles-daemon`, `kanshi`,
-`wdisplays`, `pulsemixer`, and `pavucontrol`. `nmtui` ships inside `network-manager`.
+`wdisplays`, `pulsemixer`, `pavucontrol`, `btrfs-progs`, and `snapper`. `nmtui` ships
+inside `network-manager`.
 
 ## Install
 

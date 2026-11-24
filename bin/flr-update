@@ -42,6 +42,19 @@ if [ "$(id -u)" -ne 0 ]; then
     privilege=(sudo)
 fi
 
+# A snapshot is only possible when the helper and a Btrfs root are both present.
+snapshot_supported() {
+    if ! command -v flr-snapshot >/dev/null 2>&1; then
+        return 1
+    fi
+
+    if ! command -v findmnt >/dev/null 2>&1; then
+        return 1
+    fi
+
+    [ "$(findmnt -no FSTYPE / 2>/dev/null || true)" = "btrfs" ]
+}
+
 rule="--------------------------------------------------------------------------"
 
 printf '%s\n' "${rule}"
@@ -97,6 +110,13 @@ fi
 if [ "${total}" -eq 0 ]; then
     printf '\nThe system is already up to date.\n'
 else
+    if snapshot_supported; then
+        printf '\nCreating a pre-update snapshot\n'
+        if ! "${privilege[@]}" flr-snapshot create pre-update; then
+            printf 'Warning: the pre-update snapshot failed; continuing with the upgrade.\n' >&2
+        fi
+    fi
+
     printf '\nApplying the upgrade\n'
     "${privilege[@]}" apt-get upgrade
 fi
@@ -114,6 +134,10 @@ fi
 
 if [ "${total}" -gt 0 ]; then
     printf 'Log out and back in to load updated desktop configuration.\n'
+fi
+
+if snapshot_supported; then
+    printf 'Roll back with: flr-snapshot rollback <id>\n'
 fi
 
 printf '%s\n' "${rule}"

@@ -1,0 +1,281 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-snapshot"
+readonly config="${FLR_SNAPSHOT_CONFIG:-root}"
+readonly root_mount="${FLR_SNAPSHOT_ROOT:-/}"
+readonly grub_config="/boot/grub/grub.cfg"
+readonly config_path="/etc/snapper/configs/${config}"
+
+usage() {
+    printf 'Usage: %s <command> [argument]\n\n' "${program}"
+    printf 'Manage Btrfs snapshots through Snapper on a FluorineOS system.\n\n'
+    printf 'Commands:\n'
+    printf '  create [label]    Create a read-only snapshot and refresh GRUB entries.\n'
+    printf '  list              Print snapshot ids, timestamps, and descriptions.\n'
+    printf '  rollback <id>     Roll the root subvolume back to snapshot <id>.\n'
+    printf '  --help            Show this help.\n\n'
+    printf 'Options:\n'
+    printf '  --yes             Skip the rollback confirmation prompt.\n\n'
+    printf 'Environment:\n'
+    printf '  FLR_SNAPSHOT_ROOT    Mount point to inspect (default /).\n'
+    printf '  FLR_SNAPSHOT_CONFIG  Snapper configuration name (default root).\n'
+}
+
+die() {
+    printf '%s: %s\n' "${program}" "$*" >&2
+    exit 1
+}
+
+note() {
+    printf '%s\n' "$*"
+}
+
+trim() {
+    local value=$1
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+    printf '%s' "${value}"
+}
+
+command -v snapper >/dev/null 2>&1 || die "snapper is required but was not found"
+command -v findmnt >/dev/null 2>&1 || die "findmnt is required but was not found"
+
+privilege=()
+if [ "$(id -u)" -ne 0 ]; then
+    command -v sudo >/dev/null 2>&1 || die "sudo or root privileges are required"
+    privilege=(sudo)
+fi
+
+run_snapper() {
+    "${privilege[@]}" snapper --no-dbus -c "${config}" "$@"
+}
+
+root_filesystem() {
+    findmnt -no FSTYPE --target "${root_mount}" 2>/dev/null || true
+}
+
+require_btrfs() {
+    local filesystem
+    filesystem=$(root_filesystem)
+    if [ "${filesystem}" != "btrfs" ]; then
+        die "${root_mount} is not on Btrfs (found ${filesystem:-unknown}); snapshots are unavailable"
+    fi
+}
+
+# Snapper refuses to adopt a layout whose .snapshots subvolume already exists,
+# which is exactly the layout the installer creates. Seed the configuration from
+# the packaged template in that case so the two paths converge on one result.
+ensure_config() {
+    local template subvolume
+
+    if "${privilege[@]}" test -f "${config_path}"; then
+        return 0
+    fi
+
+    if run_snapper create-config "${root_mount}" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    template="/usr/share/snapper/config-templates/default"
+    [ -f "${template}" ] || die "snapper configuration template not found: ${template}"
+
+    subvolume="${root_mount}"
+    [ "${subvolume}" = "/" ] || subvolume="${subvolume%/}"
+
+    "${privilege[@]}" install -d -m 0755 /etc/snapper/configs
+    "${privilege[@]}" install -m 0640 "${template}" "${config_path}"
+    "${privilege[@]}" sed -i "s|^SUBVOLUME=.*|SUBVOLUME=\"${subvolume}\"|" "${config_path}"
+    note "Seeded Snapper configuration ${config} for ${subvolume}."
+}
+
+max_snapshot_id() {
+    run_snapper list --columns number 2>/dev/null | grep -Eo '[0-9]+' | sort -n | tail -1
+}
+
+snapshot_exists() {
+    local id=$1
+    run_snapper list --columns number 2>/dev/null | grep -Eq "(^|[^0-9])${id}([^0-9]|$)"
+}
+
+refresh_grub() {
+    local generator
+
+    if [ ! -d /etc/grub.d ]; then
+        note "GRUB menu not refreshed: /etc/grub.d is absent."
+        return 0
+    fi
+
+    generator=$(find /etc/grub.d -maxdepth 1 -name '*snapshot*' -print -quit)
+    if [ -z "${generator}" ] && ! grep -qi 'snapshot' /etc/grub.d/40_custom 2>/dev/null; then
+        note "GRUB menu not refreshed: no snapshot menu generator is installed."
+        return 0
+    fi
+
+    if ! command -v grub-mkconfig >/dev/null 2>&1; then
+        note "GRUB menu not refreshed: grub-mkconfig is not installed."
+        return 0
+    fi
+
+    note "Refreshing GRUB entries for the new snapshot."
+    "${privilege[@]}" grub-mkconfig -o "${grub_config}" >/dev/null
+}
+
+create_snapshot() {
+    local label=${1:-manual}
+    local identifier
+
+    label=$(printf '%s' "${label}" | tr -d '\n\r')
+    [ -n "${label}" ] || label="manual"
+    if [ "${#label}" -gt 60 ]; then
+        label="${label:0:60}"
+        label=$(trim "${label}")
+    fi
+
+    require_btrfs
+    ensure_config
+
+    run_snapper create --description "${label}" --cleanup-algorithm number >/dev/null
+
+    identifier=$(max_snapshot_id)
+    if [ -z "${identifier}" ]; then
+        note "Snapshot created: ${label}"
+    else
+        note "Snapshot ${identifier} created: ${label}"
+    fi
+
+    refresh_grub
+}
+
+print_snapshots() {
+    local line identifier date description
+
+    require_btrfs
+    ensure_config
+
+    printf '%-4s  %-34s  %s\n' "ID" "TIMESTAMP" "DESCRIPTION"
+    printf '%-4s  %-34s  %s\n' "--" "----------------------------------" "-----------"
+
+    run_snapper list --columns number,date,description 2>/dev/null |
+        while IFS= read -r line; do
+            case "${line}" in
+                *"|"*) ;;
+                *) continue ;;
+            esac
+
+            identifier=$(trim "${line%%|*}")
+            case "${identifier}" in
+                '' | *[!0-9]*) continue ;;
+            esac
+
+            line="${line#*|}"
+            date=$(trim "${line%%|*}")
+            description=$(trim "${line#*|}")
+
+            printf '%-4s  %-34s  %s\n' "${identifier}" "${date}" "${description}"
+        done
+}
+
+rollback_snapshot() {
+    local id=$1
+    local assume_yes=$2
+    local answer=""
+
+    case "${id}" in
+        '' | *[!0-9]*) die "rollback needs a numeric snapshot id" ;;
+    esac
+
+    [ "${id}" -ne 0 ] || die "snapshot 0 is the current state and cannot be rolled back to"
+
+    require_btrfs
+    ensure_config
+
+    snapshot_exists "${id}" || die "no snapshot with id ${id}"
+
+    if [ "${assume_yes}" -ne 1 ]; then
+        if [ ! -t 0 ]; then
+            die "refusing to roll back without confirmation; pass --yes"
+        fi
+
+        printf 'Roll back %s to snapshot %s? Type yes to continue: ' "${root_mount}" "${id}"
+        read -r answer
+        case "${answer}" in
+            yes | YES | y | Y) ;;
+            *) die "rollback cancelled" ;;
+        esac
+    fi
+
+    run_snapper rollback "${id}"
+    refresh_grub
+
+    note ""
+    note "Snapshot ${id} is now the default root subvolume."
+    note "Reboot to boot into it:"
+    note ""
+    note "    systemctl reboot"
+    note ""
+    note "After the reboot, verify the mount with:"
+    note ""
+    note "    findmnt -no SOURCE,FSTYPE /"
+    note ""
+    note "The previous state is preserved as a new snapshot, and older snapshots"
+    note "remain available under ${root_mount%/}/.snapshots."
+}
+
+main() {
+    local command=${1:-}
+    local assume_yes=0
+    local argument=""
+
+    case "${command}" in
+        -h | --help)
+            usage
+            return 0
+            ;;
+        "")
+            usage >&2
+            exit 2
+            ;;
+        create | list | rollback) ;;
+        *)
+            usage >&2
+            exit 2
+            ;;
+    esac
+
+    shift
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --yes)
+                assume_yes=1
+                ;;
+            -h | --help)
+                usage
+                return 0
+                ;;
+            *)
+                if [ -n "${argument}" ]; then
+                    die "unexpected argument: $1"
+                fi
+                argument=$1
+                ;;
+        esac
+        shift
+    done
+
+    case "${command}" in
+        create)
+            create_snapshot "${argument}"
+            ;;
+        list)
+            [ -z "${argument}" ] || die "list takes no argument"
+            print_snapshots
+            ;;
+        rollback)
+            rollback_snapshot "${argument}" "${assume_yes}"
+            ;;
+    esac
+}
+
+main "$@"

@@ -11,7 +11,8 @@ Architecture: all
 Depends: hyprland, hypridle, hyprlock, waybar, kitty, fuzzel,
  sway-notification-center, swaybg, grim, slurp, wl-clipboard, cliphist,
  brightnessctl, wireplumber, jq, libnotify-bin, network-manager, bluez,
- blueman, power-profiles-daemon, kanshi, wdisplays, pulsemixer, pavucontrol
+ blueman, power-profiles-daemon, kanshi, wdisplays, pulsemixer, pavucontrol,
+ btrfs-progs, snapper
 Description: FluorineOS AMOLED Hyprland desktop environment
  FluorineOS desktop configuration for Hyprland 0.55 and later, built on a
  pure AMOLED black base with a reactive lime accent.
@@ -29,7 +30,11 @@ Description: FluorineOS AMOLED Hyprland desktop environment
  flr-ctl provides a single keyboard-driven system menu in Fuzzel for network,
  Bluetooth, display, audio, power, diagnostics, and session actions, and
  flr-update refreshes APT metadata, lists incoming FluorineOS and security
- upgrades, and reports whether a reboot is required.
+ upgrades, and reports whether a reboot is required. On a Btrfs root it
+ creates a pre-update snapshot before applying the upgrade.
+ .
+ flr-snapshot creates, lists, and rolls back Btrfs snapshots through snapper,
+ refreshing the GRUB menu when a snapshot generator is installed.
  .
  Configuration is installed into /etc/skel/.config so that newly created
  users receive the FluorineOS desktop on first login. The first interactive

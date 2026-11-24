@@ -1,3 +1,18 @@
+fluorine-desktop (0.4.0) trixie; urgency=medium
+
+  * Add flr-snapshot, which creates, lists, and rolls back Btrfs snapshots
+    through snapper, including GRUB menu refresh when a snapshot generator is
+    present.
+  * Create a pre-update snapshot from flr-update before applying an upgrade
+    whenever the root filesystem is Btrfs, and report the rollback command once
+    the upgrade finishes.
+  * Add a Snapshots action to flr-ctl that opens the snapshot table in a
+    persistent terminal.
+  * Depend on btrfs-progs and snapper so both tools are present on installed
+    systems.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Tue, 24 Nov 2026 23:10:00 +0530
+
 fluorine-desktop (0.3.0) trixie; urgency=medium
 
   * Add flr-ctl, a Fuzzel system menu bound to SUPER + Escape and the Waybar
