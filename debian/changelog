@@ -1,3 +1,12 @@
+fluorine-desktop (0.6.0) trixie; urgency=medium
+
+  * Rebuild the hyprlock screen around the AMOLED Void palette: the dimmed
+    active wallpaper over a black canvas, an oversized Inter clock, a carbon
+    input panel with a hairline idle frame, a lime ring while authenticating, a
+    red ring on failure, and muted battery and keyboard-layout status text.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Wed, 25 Nov 2026 01:10:00 +0530
+
 fluorine-desktop (0.5.0) trixie; urgency=medium
 
   * Add flr-mode, which switches between the work, focus, and present
