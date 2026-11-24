@@ -194,7 +194,9 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("swaync")
     hl.exec_cmd("lxpolkit")
     hl.exec_cmd("hypridle")
-    hl.exec_cmd("swaybg -c '#000000'")
+    -- Apply the saved wallpaper, falling back to the shipped grid wallpaper, so
+    -- the desktop matches the lock screen from the first frame.
+    hl.exec_cmd("flr-wall restore")
     -- Reapply the display shader chosen before the last logout, so the look
     -- survives a restart instead of silently resetting to color-accurate.
     hl.exec_cmd("flr-shader restore")
@@ -249,6 +251,8 @@ hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd("flr-shot"))
 -- Cycle the display shader off, night, mono (color-accurate by default).
 hl.bind(mainMod .. " + SHIFT + N", hl.dsp.exec_cmd("flr-shader cycle"))
+-- Wallpaper picker across the shipped set and ~/Pictures/Wallpapers.
+hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("flr-wall"))
 hl.bind(mainMod .. " + slash",     hl.dsp.exec_cmd("flr-keys"))
 -- Unified system menu: network, Bluetooth, display, audio, power, and session.
 hl.bind(mainMod .. " + Escape",    hl.dsp.exec_cmd("flr-ctl"))

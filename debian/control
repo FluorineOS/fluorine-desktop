@@ -13,6 +13,7 @@ Depends: hyprland, hypridle, hyprlock, waybar, kitty, fuzzel,
  brightnessctl, wireplumber, jq, libnotify-bin, network-manager, bluez,
  blueman, power-profiles-daemon, kanshi, wdisplays, pulsemixer, pavucontrol,
  btrfs-progs, snapper, podman, distrobox
+Recommends: fluorine-artwork
 Description: FluorineOS AMOLED Hyprland desktop environment
  FluorineOS desktop configuration for Hyprland 0.55 and later, built on a
  pure AMOLED black base with a reactive lime accent.
@@ -44,6 +45,10 @@ Description: FluorineOS AMOLED Hyprland desktop environment
  flr-shader cycles the display between color-accurate, warm low-blue-light, and
  grayscale shaders through the Hyprland screen_shader decoration option, and
  restores the saved choice on the next login.
+ .
+ flr-wall switches the desktop wallpaper from the shipped 4K set or from
+ ~/Pictures/Wallpapers, remembers the choice across logins, and keeps the
+ hyprlock lock screen background in step with it.
  .
  Configuration is installed into /etc/skel/.config so that newly created
  users receive the FluorineOS desktop on first login. The first interactive

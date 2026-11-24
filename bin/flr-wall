@@ -1,0 +1,260 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-wall"
+readonly system_dir="/usr/share/backgrounds/fluorine"
+readonly user_dir="${HOME}/Pictures/Wallpapers"
+readonly state_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/fluorine"
+readonly state_file="${state_dir}/wallpaper"
+readonly config_dir="${XDG_CONFIG_HOME:-${HOME}/.config}"
+readonly hyprlock_conf="${config_dir}/hypr/hyprlock.conf"
+readonly default_wall="${system_dir}/fluorine-grid.png"
+readonly void_color="#000000"
+
+usage() {
+    printf 'Usage: %s [set <path>|next|restore|status]\n\n' "${program}"
+    printf 'Switch the desktop wallpaper. With no argument, a Fuzzel picker opens\n'
+    printf 'over %s and %s.\n\n' "${system_dir}" "${user_dir}"
+    printf 'Commands:\n'
+    printf '  set <path>  Apply a wallpaper by path or file name.\n'
+    printf '  next        Advance to the next wallpaper in the list.\n'
+    printf '  restore     Reapply the saved wallpaper, used at session start.\n'
+    printf '  status      Print the current wallpaper path.\n'
+}
+
+die() {
+    printf '%s: %s\n' "${program}" "$*" >&2
+    exit 1
+}
+
+note() {
+    printf '%s\n' "$*" >&2
+}
+
+list_wallpapers() {
+    local dir
+
+    for dir in "${system_dir}" "${user_dir}"; do
+        [ -d "${dir}" ] || continue
+        find "${dir}" -maxdepth 1 -type f \
+            \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) |
+            LC_ALL=C sort
+    done
+}
+
+current_wall() {
+    local saved=""
+
+    if [ -f "${state_file}" ]; then
+        saved=$(<"${state_file}")
+    fi
+
+    if [ -n "${saved}" ] && [ -f "${saved}" ]; then
+        printf '%s' "${saved}"
+        return 0
+    fi
+
+    printf '%s' "${default_wall}"
+}
+
+hyprland_active() {
+    [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1
+}
+
+write_state() {
+    mkdir -p "${state_dir}"
+    printf '%s' "$1" >"${state_file}"
+}
+
+# hyprlock reads its background path from this file at lock time. Rewriting only
+# the path line of the background block keeps the lock screen on the wallpaper
+# that is currently on screen, including wallpapers added under ~/Pictures.
+sync_hyprlock() {
+    local path=$1
+    local tmp
+
+    [ -f "${hyprlock_conf}" ] || return 0
+    [ -w "${hyprlock_conf}" ] || return 0
+
+    tmp=$(mktemp "${hyprlock_conf}.XXXXXX")
+    if ! awk -v target="${path}" '
+        BEGIN { in_block = 0; found = 0 }
+        /^[[:space:]]*background[[:space:]]*\{/ { in_block = 1 }
+        in_block && /^[[:space:]]*path[[:space:]]*=/ {
+            if (!found) { printf "    path = %s\n", target; found = 1 }
+            next
+        }
+        in_block && /^[[:space:]]*\}/ {
+            if (!found) { printf "    path = %s\n", target; found = 1 }
+            in_block = 0
+        }
+        { print }
+    ' "${hyprlock_conf}" >"${tmp}"; then
+        rm -f "${tmp}"
+        note "${program}: could not update ${hyprlock_conf}; lock screen keeps its own path"
+        return 0
+    fi
+
+    if cmp -s "${tmp}" "${hyprlock_conf}"; then
+        rm -f "${tmp}"
+        return 0
+    fi
+
+    # Copying over the existing file keeps its inode, owner, and mode.
+    cat "${tmp}" >"${hyprlock_conf}"
+    rm -f "${tmp}"
+}
+
+restart_background() {
+    local path=$1
+
+    command -v swaybg >/dev/null 2>&1 || return 0
+
+    pkill -x swaybg 2>/dev/null || true
+
+    if [ -n "${path}" ]; then
+        setsid swaybg -m fill -i "${path}" >/dev/null 2>&1 &
+    else
+        setsid swaybg -c "${void_color}" >/dev/null 2>&1 &
+    fi
+}
+
+apply_wall() {
+    local path=$1
+    local label
+
+    if [ -n "${path}" ] && [ ! -f "${path}" ]; then
+        die "wallpaper not found: ${path}"
+    fi
+
+    write_state "${path}"
+    if [ -n "${path}" ]; then
+        sync_hyprlock "${path}"
+    fi
+
+    if [ -n "${path}" ]; then
+        label=$(basename -- "${path}")
+    else
+        label="void canvas ${void_color}"
+    fi
+
+    if ! hyprland_active; then
+        note "${program}: Hyprland is not running; saved ${label} for the next session"
+        return 0
+    fi
+
+    restart_background "${path}"
+    printf 'Wallpaper: %s\n' "${label}"
+}
+
+# Accepts an absolute path, a bare file name from either wallpaper directory, or
+# an empty string for the void canvas fallback.
+resolve_wall() {
+    local candidate=$1
+    local dir
+
+    if [ -z "${candidate}" ]; then
+        printf ''
+        return 0
+    fi
+
+    if [ -f "${candidate}" ]; then
+        printf '%s' "${candidate}"
+        return 0
+    fi
+
+    for dir in "${system_dir}" "${user_dir}"; do
+        if [ -f "${dir}/${candidate}" ]; then
+            printf '%s' "${dir}/${candidate}"
+            return 0
+        fi
+    done
+
+    die "wallpaper not found: ${candidate}"
+}
+
+next_wall() {
+    local -a wallpapers=()
+    local current index=-1 found=0 i next
+
+    mapfile -t wallpapers < <(list_wallpapers)
+    if [ "${#wallpapers[@]}" -eq 0 ]; then
+        die "no wallpapers found in ${system_dir} or ${user_dir}"
+    fi
+
+    current=$(current_wall)
+    for i in "${!wallpapers[@]}"; do
+        if [ "${wallpapers[i]}" = "${current}" ]; then
+            index=${i}
+            found=1
+            break
+        fi
+    done
+
+    if [ "${found}" -eq 0 ]; then
+        index=0
+    fi
+
+    next=$(((index + 1) % ${#wallpapers[@]}))
+    apply_wall "${wallpapers[next]}"
+}
+
+pick_wall() {
+    local -a wallpapers=()
+    local selection candidate
+
+    command -v fuzzel >/dev/null 2>&1 || die "fuzzel is required to pick a wallpaper"
+
+    mapfile -t wallpapers < <(list_wallpapers)
+    if [ "${#wallpapers[@]}" -eq 0 ]; then
+        die "no wallpapers found in ${system_dir} or ${user_dir}"
+    fi
+
+    selection=$(printf '%s\n' "${wallpapers[@]##*/}" |
+        fuzzel --dmenu --prompt "Wallpaper > " --lines 8 --width 40) || exit 0
+
+    [ -n "${selection}" ] || exit 0
+    candidate=$(resolve_wall "${selection}") || exit 1
+    apply_wall "${candidate}"
+}
+
+main() {
+    case "${1:-}" in
+        "")
+            pick_wall
+            ;;
+        -h | --help)
+            usage
+            ;;
+        set)
+            [ "$#" -ge 2 ] || die "set needs a wallpaper path or file name"
+            # A failed lookup exits inside the substitution, so the status has
+            # to be checked or the fallback would silently succeed.
+            resolved=$(resolve_wall "$2") || exit 1
+            apply_wall "${resolved}"
+            ;;
+        next)
+            next_wall
+            ;;
+        restore)
+            # A saved wallpaper can disappear between logins, so fall back to
+            # the void canvas instead of failing the session start.
+            wall=$(current_wall)
+            if [ -f "${wall}" ]; then
+                apply_wall "${wall}"
+            else
+                apply_wall ""
+            fi
+            ;;
+        status)
+            current_wall
+            printf '\n'
+            ;;
+        *)
+            usage >&2
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"

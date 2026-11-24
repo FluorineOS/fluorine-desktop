@@ -8,27 +8,27 @@ readonly state_file="${state_dir}/shader"
 readonly shaders=(off night mono)
 
 usage() {
-    printf 'Usage: %s [off|night|mono|cycle|restore|status]\\n\\n' "${program}"
-    printf 'Switch the Hyprland display shader through decoration:screen_shader.\\n'
-    printf 'With no argument, a Fuzzel picker opens (or the status is printed when\\n'
-    printf 'Fuzzel is unavailable).\\n\\n'
-    printf 'Shaders:\\n'
-    printf '  off      Color-accurate default. No shader is loaded.\\n'
-    printf '  night    Warm low-blue-light pass for late sessions.\\n'
-    printf '  mono     Pure grayscale focus mode.\\n\\n'
-    printf 'Commands:\\n'
-    printf '  cycle    Advance off, night, mono. Bound to SUPER + Shift + N.\\n'
-    printf '  restore  Reapply the saved shader, used at session start.\\n'
-    printf '  status   Print the current shader name.\\n'
+    printf 'Usage: %s [off|night|mono|cycle|restore|status]\n\n' "${program}"
+    printf 'Switch the Hyprland display shader through decoration:screen_shader.\n'
+    printf 'With no argument, a Fuzzel picker opens (or the status is printed when\n'
+    printf 'Fuzzel is unavailable).\n\n'
+    printf 'Shaders:\n'
+    printf '  off      Color-accurate default. No shader is loaded.\n'
+    printf '  night    Warm low-blue-light pass for late sessions.\n'
+    printf '  mono     Pure grayscale focus mode.\n\n'
+    printf 'Commands:\n'
+    printf '  cycle    Advance off, night, mono. Bound to SUPER + Shift + N.\n'
+    printf '  restore  Reapply the saved shader, used at session start.\n'
+    printf '  status   Print the current shader name.\n'
 }
 
 die() {
-    printf '%s: %s\\n' "${program}" "$*" >&2
+    printf '%s: %s\n' "${program}" "$*" >&2
     exit 1
 }
 
 note() {
-    printf '%s\\n' "$*" >&2
+    printf '%s\n' "$*" >&2
 }
 
 label_for() {
@@ -101,7 +101,7 @@ apply_shader() {
         die "hyprctl rejected the shader change"
     fi
 
-    printf 'Shader: %s\\n' "$(label_for "${name}")"
+    printf 'Shader: %s\n' "$(label_for "${name}")"
 }
 
 next_shader() {
@@ -116,11 +116,11 @@ pick_shader() {
     local selection
 
     if ! command -v fuzzel >/dev/null 2>&1; then
-        printf 'Shader: %s\\n' "$(label_for "$(current_shader)")"
+        printf 'Shader: %s\n' "$(label_for "$(current_shader)")"
         return 0
     fi
 
-    selection=$(printf '%s\\n' "${shaders[@]}" |
+    selection=$(printf '%s\n' "${shaders[@]}" |
         fuzzel --dmenu --prompt "Shader > " --lines 3 --width 24) || exit 0
 
     [ -n "${selection}" ] || exit 0
@@ -136,7 +136,7 @@ main() {
             usage
             ;;
         status)
-            printf '%s\\n' "$(label_for "$(current_shader)")"
+            printf '%s\n' "$(label_for "$(current_shader)")"
             ;;
         cycle)
             apply_shader "$(next_shader)"

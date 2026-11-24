@@ -1,3 +1,17 @@
+fluorine-desktop (0.8.0) trixie; urgency=medium
+
+  * Add flr-wall, a wallpaper switcher that lists the shipped 4K set in
+    /usr/share/backgrounds/fluorine and any image in ~/Pictures/Wallpapers,
+    applies a choice through swaybg, and remembers it in
+    ~/.local/state/fluorine/wallpaper.
+  * Keep the lock screen in step by rewriting the hyprlock background path
+    whenever the wallpaper changes, and restore the saved wallpaper from the
+    Hyprland start hook instead of starting swaybg with a bare color.
+  * Bind SUPER + W to the Fuzzel wallpaper picker and add a Wallpaper entry to
+    the flr-ctl system menu.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Wed, 25 Nov 2026 03:10:00 +0530
+
 fluorine-desktop (0.7.0) trixie; urgency=medium
 
   * Calibrate window geometry and motion: 4px corner rounding, a short

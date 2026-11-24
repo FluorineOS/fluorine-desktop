@@ -27,6 +27,7 @@
 | `/usr/share/fluorineos/shaders/night.glsl` | Warm low-blue-light display shader |
 | `/usr/share/fluorineos/shaders/mono.glsl` | Grayscale focus-mode display shader |
 | `/usr/bin/flr-shader` | Display shader cycle, picker, and restore |
+| `/usr/bin/flr-wall` | Wallpaper picker, next, set, and restore |
 | `/usr/bin/flr-shot` | Interactive area screenshot |
 | `/usr/bin/flr-keys` | Keybinding reference dialog |
 | `/usr/bin/flr-doctor` | Hardware, session, and service diagnostic report |
@@ -59,6 +60,7 @@ The session starts `hypridle`, `kanshi`, `cliphist` through `wl-paste --watch`, 
 | Power profile | Click the Waybar power module; it cycles power-saver, balanced, performance |
 | System menu | `SUPER + Escape`, or click the Waybar SYS indicator |
 | Display shader | `SUPER + Shift + N` cycles off, night, mono |
+| Wallpaper | `SUPER + W` opens the picker; `flr-wall next` advances |
 | Workstation mode | `SUPER + M`, or click the Waybar mode badge |
 | External display | Connect an HDMI or DisplayPort monitor; kanshi applies a profile |
 
@@ -105,6 +107,14 @@ them in rootless Podman containers managed through Distrobox. `flr-box init debi
 `arch` and `fedora`) creates a box, `flr-box enter` opens a shell, `flr-box export <binary>`
 publishes a container command into `~/.local/bin`, and `flr-box list` shows the boxes.
 
+`flr-wall` lists `/usr/share/backgrounds/fluorine/` and `~/Pictures/Wallpapers/` in a
+Fuzzel picker, applies the choice through `swaybg`, and stores the path in
+`~/.local/state/fluorine/wallpaper`. The Hyprland start hook runs `flr-wall restore`, so the
+session comes back on the same wallpaper instead of a bare color, and every switch rewrites
+the `path` line of the `background` block in `~/.config/hypr/hyprlock.conf` so the lock
+screen follows the desktop. `flr-wall set <path>` and `flr-wall next` cover scripted use.
+When `fluorine-artwork` is absent the switcher falls back to `swaybg -c '#000000'`.
+
 `flr-shader` drives Hyprland's `decoration:screen_shader` and keeps the three
 states honest: `off` loads no shader at all and stays color-accurate, `night` runs a warm
 low-blue-light pass for late sessions, and `mono` desaturates the session to Rec. 709
@@ -132,7 +142,7 @@ present, which is the normal case in a virtual machine.
 | Field | Value |
 | --- | --- |
 | Name | `fluorine-desktop` |
-| Version | `0.7.0` |
+| Version | `0.8.0` |
 | Architecture | `all` |
 
 Runtime dependencies are declared by the package: `hyprland`, `hypridle`, `hyprlock`,
@@ -175,7 +185,7 @@ Requires `dpkg-dev` and `debhelper` on Debian 13 `amd64`.
 git clone https://github.com/FluorineOS/fluorine-desktop.git
 cd fluorine-desktop
 dpkg-buildpackage -us -uc -b
-dpkg-deb -c ../fluorine-desktop_0.7.0_all.deb
+dpkg-deb -c ../fluorine-desktop_0.8.0_all.deb
 ```
 
 The built `.deb` is written to the parent directory.

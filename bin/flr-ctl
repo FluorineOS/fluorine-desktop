@@ -106,6 +106,7 @@ entries=(
     "Display Layout"
     "Audio Mixer"
     "Display Shader"
+    "Wallpaper"
     "${power_entry}"
     "Keybinding Cheatsheet"
     "System Diagnostics"
@@ -117,7 +118,7 @@ entries=(
     "Shut Down"
 )
 
-selection="$(printf '%s\n' "${entries[@]}" | fuzzel --dmenu --prompt "${prompt}" --lines 14 --width 38)" || exit 0
+selection="$(printf '%s\n' "${entries[@]}" | fuzzel --dmenu --prompt "${prompt}" --lines 15 --width 38)" || exit 0
 
 case "${selection}" in
     "Network Settings")
@@ -137,6 +138,9 @@ case "${selection}" in
         ;;
     "Display Shader")
         exec flr-shader
+        ;;
+    "Wallpaper")
+        exec flr-wall
         ;;
     "Power Profile"*)
         result="$(flr-power cycle 2>/dev/null || true)"
