@@ -1,0 +1,5 @@
+# FluorineOS ships the desktop session defaults in /etc/skel so that every newly
+# created user receives the Hyprland, Waybar, Kitty, Fuzzel, SwayNC, and kanshi
+# configuration on first login. These are package content by design, not files
+# copied from an administrator account, which is what this tag reports.
+fluorine-desktop: package-contains-file-in-etc-skel

@@ -21,6 +21,10 @@ case "${1:-}" in
         ;;
 esac
 
+if command -v bluetui >/dev/null 2>&1 && command -v flr-tui >/dev/null 2>&1; then
+    exec flr-tui bluetui
+fi
+
 if command -v blueman-manager >/dev/null 2>&1; then
     if command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
         exec hyprctl dispatch exec "[float;size 960 680;center] blueman-manager"

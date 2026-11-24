@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-update"
+readonly reboot_marker="/var/run/reboot-required"
+readonly reboot_pkgs="/var/run/reboot-required.pkgs"
+
+usage() {
+    printf 'Usage: %s [--check]\n\n' "${program}"
+    printf 'Refresh APT metadata, list incoming FluorineOS and security upgrades, then\n'
+    printf 'run the upgrade and report whether a reboot is required. With --check the\n'
+    printf 'metadata refresh and listing still happen, but nothing is installed.\n'
+}
+
+die() {
+    printf '%s: %s\n' "${program}" "$*" >&2
+    exit 1
+}
+
+check_only=0
+case "${1:-}" in
+    "")
+        ;;
+    --check)
+        check_only=1
+        ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac
+
+command -v apt-get >/dev/null 2>&1 || die "apt-get is required but was not found"
+
+privilege=()
+if [ "$(id -u)" -ne 0 ]; then
+    command -v sudo >/dev/null 2>&1 || die "sudo or root privileges are required"
+    privilege=(sudo)
+fi
+
+rule="--------------------------------------------------------------------------"
+
+printf '%s\n' "${rule}"
+printf 'FluorineOS package update\n'
+printf '%s\n' "${rule}"
+
+printf '\nRefreshing package metadata\n'
+"${privilege[@]}" apt-get update
+
+printf '\nIncoming upgrades\n'
+simulation="$(apt-get -s upgrade 2>/dev/null || true)"
+
+if [ -z "${simulation}" ]; then
+    die "apt-get could not simulate the upgrade"
+fi
+
+total=0
+fluorine=0
+security=0
+
+while IFS= read -r line; do
+    case "${line}" in
+        Inst*)
+            total=$((total + 1))
+            case "${line}" in
+                *fluorine-*)
+                    fluorine=$((fluorine + 1))
+                    printf '  FluorineOS  %s\n' "$(printf '%s' "${line}" | awk '{print $2}')"
+                    ;;
+            esac
+            case "${line}" in
+                *security*)
+                    security=$((security + 1))
+                    printf '  Security    %s\n' "$(printf '%s' "${line}" | awk '{print $2}')"
+                    ;;
+            esac
+            ;;
+    esac
+done <<< "${simulation}"
+
+if [ "${total}" -eq 0 ]; then
+    printf '  No packages to upgrade.\n'
+else
+    printf '\nSummary: %d package(s) can be upgraded, %d FluorineOS, %d security.\n' \
+        "${total}" "${fluorine}" "${security}"
+fi
+
+if [ "${check_only}" -eq 1 ]; then
+    printf '\nCheck only. No packages were changed.\n'
+    exit 0
+fi
+
+if [ "${total}" -eq 0 ]; then
+    printf '\nThe system is already up to date.\n'
+else
+    printf '\nApplying the upgrade\n'
+    "${privilege[@]}" apt-get upgrade
+fi
+
+printf '\n%s\n' "${rule}"
+if [ -f "${reboot_marker}" ]; then
+    printf 'A reboot is required to finish the update.\n'
+    if [ -f "${reboot_pkgs}" ]; then
+        printf 'Packages that requested it:\n'
+        sed 's/^/  /' "${reboot_pkgs}"
+    fi
+else
+    printf 'No reboot is required.\n'
+fi
+
+if [ "${total}" -gt 0 ]; then
+    printf 'Log out and back in to load updated desktop configuration.\n'
+fi
+
+printf '%s\n' "${rule}"

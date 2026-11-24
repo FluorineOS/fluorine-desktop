@@ -6,6 +6,7 @@
     "modules-left": ["hyprland/workspaces", "hyprland/window"],
     "modules-center": ["clock"],
     "modules-right": [
+        "custom/system",
         "custom/power",
         "bluetooth",
         "network",
@@ -54,6 +55,13 @@
         "tooltip-format-connected": "{controller_alias} {controller_address}\n{device_enumerate}",
         "on-click": "flr-bt",
         "on-click-right": "flr-tui bluetoothctl"
+    },
+
+    "custom/system": {
+        "format": "SYS",
+        "tooltip": "System menu (SUPER + Escape)",
+        "on-click": "flr-ctl",
+        "on-click-right": "flr-tui flr-update"
     },
 
     "custom/power": {

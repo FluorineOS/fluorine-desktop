@@ -1,3 +1,19 @@
+fluorine-desktop (0.3.0) trixie; urgency=medium
+
+  * Add flr-ctl, a Fuzzel system menu bound to SUPER + Escape and the Waybar
+    SYS indicator. It reaches nmtui in a floating window, the Bluetooth
+    manager, wdisplays, the audio mixer, power profile cycling, the keybinding
+    cheatsheet, a persistent flr-doctor terminal, and the lock, suspend,
+    reboot, and shutdown actions.
+  * Add flr-update, which refreshes APT metadata, lists incoming FluorineOS and
+    security upgrades, runs the upgrade, and reports whether a reboot is
+    required.
+  * Prefer bluetui for Bluetooth when it is installed and fall back to
+    blueman-manager and bluetoothctl.
+  * Depend on pulsemixer and pavucontrol so the audio entry always resolves.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Tue, 24 Nov 2026 21:45:00 +0530
+
 fluorine-desktop (0.2.0) trixie; urgency=medium
 
   * Add NetworkManager and Bluetooth controls to Waybar: the network module

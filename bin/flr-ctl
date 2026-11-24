@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-ctl"
+readonly prompt="System > "
+
+usage() {
+    printf 'Usage: %s\n\n' "${program}"
+    printf 'Open the FluorineOS system menu in Fuzzel. Network, Bluetooth, display,\n'
+    printf 'audio, power, diagnostics, and session actions are reachable from the\n'
+    printf 'keyboard alone.\n'
+}
+
+die() {
+    printf '%s: %s\n' "${program}" "$*" >&2
+    exit 1
+}
+
+command -v fuzzel >/dev/null 2>&1 || die "fuzzel is required but was not found"
+
+case "${1:-}" in
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    "")
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac
+
+# Launch a graphical control panel as a floating, centred window. The inline
+# rule only applies inside a Hyprland session; elsewhere the window opens
+# normally.
+launch_gui() {
+    if command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+        exec hyprctl dispatch exec "[float;size 980 700;center] $1"
+    fi
+
+    exec "$1"
+}
+
+launch_tui() {
+    if command -v flr-tui >/dev/null 2>&1; then
+        exec flr-tui "$@"
+    fi
+
+    die "flr-tui is required to open $1 in a terminal"
+}
+
+# A persistent terminal keeps diagnostic output readable after the command
+# exits, which is the point of the doctor entry.
+launch_persistent_tui() {
+    if command -v kitty >/dev/null 2>&1; then
+        if command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+            exec hyprctl dispatch exec "[float;size 1100 720;center] kitty --hold --class flr-tui -e $1"
+        fi
+
+        exec kitty --hold --class flr-tui -e "$1"
+    fi
+
+    exec "$1"
+}
+
+audio_menu() {
+    if command -v wiremix >/dev/null 2>&1; then
+        launch_tui wiremix
+    fi
+
+    if command -v pulsemixer >/dev/null 2>&1; then
+        launch_tui pulsemixer
+    fi
+
+    if command -v pavucontrol >/dev/null 2>&1; then
+        launch_gui pavucontrol
+    fi
+
+    die "no audio mixer is installed"
+}
+
+power_profile() {
+    local label
+
+    if ! command -v flr-power >/dev/null 2>&1; then
+        return 1
+    fi
+
+    label="$(flr-power 2>/dev/null || true)"
+    if [ -z "${label}" ] || [ "${label}" = "PWR N/A" ]; then
+        return 1
+    fi
+
+    printf '%s' "${label}"
+}
+
+power_entry="Power Profile"
+if profile_label="$(power_profile)"; then
+    power_entry="Power Profile (${profile_label})"
+fi
+
+entries=(
+    "Network Settings"
+    "Bluetooth Devices"
+    "Display Layout"
+    "Audio Mixer"
+    "${power_entry}"
+    "Keybinding Cheatsheet"
+    "System Diagnostics"
+    "Lock Session"
+    "Suspend"
+    "Reboot"
+    "Shut Down"
+)
+
+selection="$(printf '%s\n' "${entries[@]}" | fuzzel --dmenu --prompt "${prompt}" --lines 11 --width 38)" || exit 0
+
+case "${selection}" in
+    "Network Settings")
+        if command -v flr-tui >/dev/null 2>&1; then
+            launch_tui nmtui
+        fi
+        die "flr-tui is required to open nmtui"
+        ;;
+    "Bluetooth Devices")
+        exec flr-bt
+        ;;
+    "Display Layout")
+        launch_gui wdisplays
+        ;;
+    "Audio Mixer")
+        audio_menu
+        ;;
+    "Power Profile"*)
+        result="$(flr-power cycle 2>/dev/null || true)"
+        if [ -n "${result}" ]; then
+            notify-send -a "${program}" "Power profile" "${result}" 2>/dev/null || true
+        fi
+        exit 0
+        ;;
+    "Keybinding Cheatsheet")
+        exec flr-keys
+        ;;
+    "System Diagnostics")
+        launch_persistent_tui flr-doctor
+        ;;
+    "Lock Session")
+        exec hyprlock
+        ;;
+    "Suspend")
+        exec systemctl suspend
+        ;;
+    "Reboot")
+        exec systemctl reboot
+        ;;
+    "Shut Down")
+        exec systemctl poweroff
+        ;;
+    *)
+        exit 0
+        ;;
+esac

@@ -61,7 +61,8 @@ window#waybar {
 }
 
 #bluetooth,
-#custom-power {
+#custom-power,
+#custom-system {
     padding: 0 12px;
     color: #e2e8f0;
 }

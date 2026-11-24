@@ -31,6 +31,8 @@
 | `/usr/bin/flr-tui` | Run a terminal interface in a floating Kitty window |
 | `/usr/bin/flr-bt` | Bluetooth manager launcher |
 | `/usr/bin/flr-power` | Power profile status and cycling for Waybar |
+| `/usr/bin/flr-ctl` | Unified Fuzzel system menu |
+| `/usr/bin/flr-update` | APT refresh, upgrade summary, and reboot report |
 
 ## Desktop Behavior
 
@@ -49,6 +51,7 @@ The session starts `hypridle`, `kanshi`, `cliphist` through `wl-paste --watch`, 
 | Wi-Fi and Ethernet | Click the Waybar network module, or run `flr-tui nmtui` |
 | Bluetooth pairing | Click the Waybar Bluetooth module, or run `flr-bt` |
 | Power profile | Click the Waybar power module; it cycles power-saver, balanced, performance |
+| System menu | `SUPER + Escape`, or click the Waybar SYS indicator |
 | External display | Connect an HDMI or DisplayPort monitor; kanshi applies a profile |
 
 The network module calls `nmtui` from NetworkManager inside a floating Kitty window, so
@@ -59,6 +62,16 @@ same floating terminal.
 `flr-power` reads `powerprofilesctl` and degrades cleanly on hardware without an ACPI
 platform profile driver: the module shows `PWR N/A` and a click reports that profiles are
 unavailable instead of failing.
+
+`flr-ctl` collects the hardware and session actions in one Fuzzel menu: network settings
+through `nmtui`, the Bluetooth manager, `wdisplays`, the audio mixer, power profile cycling,
+the keybinding cheatsheet, `flr-doctor` in a persistent terminal, and lock, suspend, reboot,
+and shutdown. The Waybar SYS indicator opens the same menu, and a right click runs
+`flr-update` in a terminal.
+
+`flr-update` refreshes APT metadata, lists the incoming FluorineOS and security packages,
+runs the upgrade, and reports whether `/var/run/reboot-required` was written. `flr-update
+--check` performs the refresh and listing without installing anything.
 
 `kanshi` watches output events. The shipped profile matches every output, keeping the
 preferred mode, automatic placement, and unity scale, so docking and undocking do not
@@ -73,14 +86,14 @@ present, which is the normal case in a virtual machine.
 | Field | Value |
 | --- | --- |
 | Name | `fluorine-desktop` |
-| Version | `0.2.0` |
+| Version | `0.3.0` |
 | Architecture | `all` |
 
 Runtime dependencies are declared by the package: `hyprland`, `hypridle`, `hyprlock`,
 `waybar`, `kitty`, `fuzzel`, `sway-notification-center`, `swaybg`, `grim`, `slurp`,
 `wl-clipboard`, `cliphist`, `brightnessctl`, `wireplumber`, `jq`, `libnotify-bin`,
-`network-manager`, `bluez`, `blueman`, `power-profiles-daemon`, `kanshi`, and
-`wdisplays`. `nmtui` ships inside `network-manager`.
+`network-manager`, `bluez`, `blueman`, `power-profiles-daemon`, `kanshi`,
+`wdisplays`, `pulsemixer`, and `pavucontrol`. `nmtui` ships inside `network-manager`.
 
 ## Install
 
