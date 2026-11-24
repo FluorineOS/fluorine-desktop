@@ -24,6 +24,9 @@
 | `/etc/skel/.config/fuzzel/fuzzel.ini` | Fuzzel launcher theme |
 | `/etc/skel/.config/swaync/style.css` | SwayNotificationCenter theme |
 | `/etc/skel/.config/kanshi/config` | Display profiles applied on output hotplug |
+| `/usr/share/fluorineos/shaders/night.glsl` | Warm low-blue-light display shader |
+| `/usr/share/fluorineos/shaders/mono.glsl` | Grayscale focus-mode display shader |
+| `/usr/bin/flr-shader` | Display shader cycle, picker, and restore |
 | `/usr/bin/flr-shot` | Interactive area screenshot |
 | `/usr/bin/flr-keys` | Keybinding reference dialog |
 | `/usr/bin/flr-doctor` | Hardware, session, and service diagnostic report |
@@ -55,6 +58,7 @@ The session starts `hypridle`, `kanshi`, `cliphist` through `wl-paste --watch`, 
 | Bluetooth pairing | Click the Waybar Bluetooth module, or run `flr-bt` |
 | Power profile | Click the Waybar power module; it cycles power-saver, balanced, performance |
 | System menu | `SUPER + Escape`, or click the Waybar SYS indicator |
+| Display shader | `SUPER + Shift + N` cycles off, night, mono |
 | Workstation mode | `SUPER + M`, or click the Waybar mode badge |
 | External display | Connect an HDMI or DisplayPort monitor; kanshi applies a profile |
 
@@ -101,6 +105,20 @@ them in rootless Podman containers managed through Distrobox. `flr-box init debi
 `arch` and `fedora`) creates a box, `flr-box enter` opens a shell, `flr-box export <binary>`
 publishes a container command into `~/.local/bin`, and `flr-box list` shows the boxes.
 
+`flr-shader` drives Hyprland's `decoration:screen_shader` and keeps the three
+states honest: `off` loads no shader at all and stays color-accurate, `night` runs a warm
+low-blue-light pass for late sessions, and `mono` desaturates the session to Rec. 709
+luminance for focus work. The choice is remembered in `~/.local/state/fluorine/shader`
+and reapplied at login, so a restart does not silently drop back to color. A window
+without a running compositor is reported rather than silently ignored.
+
+The session animation set is deliberately narrow: two bounded cubic-bezier curves, one
+decelerating ease-out and one with a flatter tail, drive 150-200ms window, fade, layer, and
+workspace transitions. Neither curve leaves the `[0, 1]` value range, so nothing overshoots
+or springs. Waybar, Fuzzel, and SwayNC share one surface language: a 32px raised carbon bar
+with a hairline bottom border, a lime underline instead of a lime fill on the active
+workspace, 1.5px hairline borders on panels, cards, and tooltips, and 8px internal padding.
+
 `kanshi` watches output events. The shipped profile matches every output, keeping the
 preferred mode, automatic placement, and unity scale, so docking and undocking do not
 require manual `hyprctl` commands. Use `wdisplays` for interactive layout adjustments and
@@ -114,7 +132,7 @@ present, which is the normal case in a virtual machine.
 | Field | Value |
 | --- | --- |
 | Name | `fluorine-desktop` |
-| Version | `0.5.0` |
+| Version | `0.7.0` |
 | Architecture | `all` |
 
 Runtime dependencies are declared by the package: `hyprland`, `hypridle`, `hyprlock`,
@@ -122,7 +140,8 @@ Runtime dependencies are declared by the package: `hyprland`, `hypridle`, `hyprl
 `wl-clipboard`, `cliphist`, `brightnessctl`, `wireplumber`, `jq`, `libnotify-bin`,
 `network-manager`, `bluez`, `blueman`, `power-profiles-daemon`, `kanshi`,
 `wdisplays`, `pulsemixer`, `pavucontrol`, `btrfs-progs`, `snapper`, `podman`, and
-`distrobox`. `nmtui` ships inside `network-manager`.
+`distrobox`. `nmtui` ships inside `network-manager`. `flr-shader` needs nothing beyond
+`hyprland` for `hyprctl`; the picker uses `fuzzel` and degrades to a status line without it.
 
 ## Install
 
@@ -156,7 +175,7 @@ Requires `dpkg-dev` and `debhelper` on Debian 13 `amd64`.
 git clone https://github.com/FluorineOS/fluorine-desktop.git
 cd fluorine-desktop
 dpkg-buildpackage -us -uc -b
-dpkg-deb -c ../fluorine-desktop_0.1.2_all.deb
+dpkg-deb -c ../fluorine-desktop_0.7.0_all.deb
 ```
 
 The built `.deb` is written to the parent directory.

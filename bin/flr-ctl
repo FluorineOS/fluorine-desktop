@@ -6,10 +6,9 @@ readonly prompt="System > "
 
 usage() {
     printf 'Usage: %s\n\n' "${program}"
-    printf 'Open the FluorineOS system menu in Fuzzel. Network, Bluetooth, display,\n'
-    printf 'audio, power, snapshots, workstation mode, diagnostics, and session\n'
-    printf 'actions are reachable\n'
-    printf 'from the keyboard alone.\n'
+    printf 'Open the FluorineOS system menu in Fuzzel. Network, Bluetooth, display\n'
+    printf 'layout, audio, display shader, power, snapshots, workstation mode,\n'
+    printf 'diagnostics, and session actions are reachable from the keyboard alone.\n'
 }
 
 die() {
@@ -106,6 +105,7 @@ entries=(
     "Bluetooth Devices"
     "Display Layout"
     "Audio Mixer"
+    "Display Shader"
     "${power_entry}"
     "Keybinding Cheatsheet"
     "System Diagnostics"
@@ -117,7 +117,7 @@ entries=(
     "Shut Down"
 )
 
-selection="$(printf '%s\n' "${entries[@]}" | fuzzel --dmenu --prompt "${prompt}" --lines 13 --width 38)" || exit 0
+selection="$(printf '%s\n' "${entries[@]}" | fuzzel --dmenu --prompt "${prompt}" --lines 14 --width 38)" || exit 0
 
 case "${selection}" in
     "Network Settings")
@@ -134,6 +134,9 @@ case "${selection}" in
         ;;
     "Audio Mixer")
         audio_menu
+        ;;
+    "Display Shader")
+        exec flr-shader
         ;;
     "Power Profile"*)
         result="$(flr-power cycle 2>/dev/null || true)"

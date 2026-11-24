@@ -1,46 +1,54 @@
 * {
     border: none;
     border-radius: 0;
+    box-shadow: none;
     font-family: "JetBrains Mono", monospace;
     font-size: 12px;
     min-height: 0;
+    padding: 0;
 }
 
+/* 32px bar on the raised carbon surface, separated from the desktop by the same
+   1.5px hairline every other panel uses. No transparency and no shadow. */
 window#waybar {
-    background: #000000;
+    background: #0a0d10;
     color: #e2e8f0;
-    border-bottom: 1px solid #1c2229;
+    border-bottom: 1.5px solid #1c2229;
 }
 
 #workspaces button {
-    padding: 0 10px;
+    padding: 0 8px;
     background: transparent;
     color: #6e7681;
     border: none;
+    border-bottom: 1.5px solid transparent;
     border-radius: 0;
 }
 
 #workspaces button:hover {
     background: #0a0d10;
     color: #e2e8f0;
+    border-bottom-color: #1c2229;
 }
 
+/* Lime is a focus signal, never a fill: the active workspace is lime text over
+   a lime underline, not a lime block. */
 #workspaces button.active {
-    background: #b4f03a;
-    color: #000000;
+    background: transparent;
+    color: #b4f03a;
+    border-bottom: 1.5px solid #b4f03a;
     font-weight: bold;
-    border-radius: 6px;
 }
 
 #workspaces button.urgent {
-    background: #f85149;
-    color: #000000;
+    background: transparent;
+    color: #f85149;
+    border-bottom: 1.5px solid #f85149;
     font-weight: bold;
-    border-radius: 6px;
 }
 
 #window {
-    padding: 0 12px;
+    padding: 0 8px;
     color: #6e7681;
 }
 
@@ -48,7 +56,7 @@ window#waybar {
 #network,
 #battery,
 #clock {
-    padding: 0 12px;
+    padding: 0 8px;
     color: #e2e8f0;
 }
 
@@ -64,14 +72,13 @@ window#waybar {
 #custom-power,
 #custom-mode,
 #custom-system {
-    padding: 0 12px;
+    padding: 0 8px;
     color: #e2e8f0;
 }
 
 /* The mode badge stays muted so it never competes with the accent, which is
    reserved for focus and active states. */
 #custom-mode {
-    padding: 0 10px;
     color: #6e7681;
 }
 
@@ -95,9 +102,26 @@ window#waybar {
 }
 
 #battery.warning {
-    color: #b4f03a;
+    color: #d29922;
 }
 
 #battery.critical {
     color: #f85149;
+}
+
+#battery.charging,
+#battery.plugged {
+    color: #3fb950;
+}
+
+tooltip {
+    background: #0a0d10;
+    border: 1.5px solid #1c2229;
+    border-radius: 4px;
+    box-shadow: none;
+}
+
+tooltip label {
+    color: #e2e8f0;
+    padding: 4px;
 }

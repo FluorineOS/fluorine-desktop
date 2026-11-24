@@ -1,3 +1,23 @@
+fluorine-desktop (0.7.0) trixie; urgency=medium
+
+  * Calibrate window geometry and motion: 4px corner rounding, a short
+    monochrome black shadow so stacked windows stay legible on dark wallpapers,
+    and two bounded cubic-bezier curves that drive 150-200ms window, fade,
+    layer, and workspace animations with no overshoot or spring bounce.
+  * Blur Waybar, Fuzzel, and both SwayNC layer surfaces with ignore_alpha set to
+    zero, so transparent panel pixels stay unblurred and text contrast is
+    untouched.
+  * Align Waybar, Fuzzel, and SwayNC on one surface language: 32px carbon bar
+    with a hairline bottom border, lime underline instead of lime fill for the
+    active workspace, 8px internal padding everywhere, and matching 1.5px
+    hairline borders on panels, cards, and tooltips.
+  * Add flr-shader, which switches decoration:screen_shader between the
+    color-accurate default, a warm night pass, and a grayscale focus mode,
+    remembers the choice, restores it at login, and is bound to SUPER + Shift +
+    N and listed in the flr-ctl system menu.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Wed, 25 Nov 2026 02:10:00 +0530
+
 fluorine-desktop (0.6.0) trixie; urgency=medium
 
   * Rebuild the hyprlock screen around the AMOLED Void palette: the dimmed

@@ -1,15 +1,22 @@
-/* FluorineOS 0.0.1 SwayNotificationCenter theme. */
+/* FluorineOS SwayNotificationCenter theme.
+ *
+ * Raised carbon cards, 1.5px hairline borders, and an 8px internal rhythm pick
+ * up the same measurements as Waybar and Fuzzel. Severity is carried by a 3px
+ * left edge plus the card title, never by color alone. */
 
 * {
     font-family: "JetBrains Mono", monospace;
     font-size: 12px;
+    box-shadow: none;
+    text-shadow: none;
 }
 
 .control-center {
     background: #0a0d10;
-    border: 1px solid #1c2229;
-    border-radius: 6px;
+    border: 1.5px solid #1c2229;
+    border-radius: 4px;
     color: #e2e8f0;
+    padding: 8px;
 }
 
 .control-center-list {
@@ -18,19 +25,41 @@
 
 .notification-row {
     background: transparent;
+    padding: 0;
 }
 
 .notification {
     background: #0a0d10;
-    border: 1px solid #1c2229;
-    border-radius: 6px;
+    border: 1.5px solid #1c2229;
+    border-left: 3px solid #6e7681;
+    border-radius: 4px;
     color: #e2e8f0;
     padding: 8px;
 }
 
+/* Severity edges: success, warning, error. The matching title keeps the state
+   readable without relying on the color. */
+.notification.low {
+    border-left-color: #3fb950;
+}
+
+.notification.normal {
+    border-left-color: #6e7681;
+}
+
+.notification.critical {
+    border: 1.5px solid #f85149;
+    border-left: 3px solid #f85149;
+}
+
 .notification-content {
     background: transparent;
-    padding: 4px;
+    padding: 0;
+}
+
+.notification-default-action {
+    padding: 8px;
+    border-radius: 4px;
 }
 
 .notification-default-action:hover {
@@ -46,34 +75,48 @@
     color: #6e7681;
 }
 
-.close-button {
-    background: transparent;
+.time {
     color: #6e7681;
 }
 
-.critical {
-    border: 1px solid #f85149;
+.close-button {
+    background: transparent;
+    color: #6e7681;
+    border-radius: 4px;
+    padding: 2px;
+}
+
+.close-button:hover {
+    background: #1c2229;
+    color: #e2e8f0;
 }
 
 .widget-title {
     color: #e2e8f0;
     font-weight: bold;
+    padding: 8px;
 }
 
 .widget-title button {
     background: #0a0d10;
-    border: 1px solid #1c2229;
-    border-radius: 6px;
+    border: 1.5px solid #1c2229;
+    border-radius: 4px;
     color: #b4f03a;
+    padding: 2px 8px;
+}
+
+.widget-title button:hover {
+    border-color: #b4f03a;
 }
 
 .widget-dnd {
     color: #e2e8f0;
+    padding: 8px;
 }
 
 .widget-dnd > switch {
     background: #1c2229;
-    border-radius: 6px;
+    border-radius: 4px;
 }
 
 .widget-dnd > switch:checked {
@@ -82,6 +125,7 @@
 
 .widget-mpris {
     background: #0a0d10;
-    border: 1px solid #1c2229;
-    border-radius: 6px;
+    border: 1.5px solid #1c2229;
+    border-radius: 4px;
+    padding: 8px;
 }

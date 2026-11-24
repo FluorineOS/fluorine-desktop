@@ -41,6 +41,10 @@ Description: FluorineOS AMOLED Hyprland desktop environment
  containers with rootless Podman and Distrobox so toolchains stay off the host
  APT database.
  .
+ flr-shader cycles the display between color-accurate, warm low-blue-light, and
+ grayscale shaders through the Hyprland screen_shader decoration option, and
+ restores the saved choice on the next login.
+ .
  Configuration is installed into /etc/skel/.config so that newly created
  users receive the FluorineOS desktop on first login. The first interactive
  login shows the keybinding cheat sheet once.

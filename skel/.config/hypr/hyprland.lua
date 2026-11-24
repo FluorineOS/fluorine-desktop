@@ -35,19 +35,33 @@ hl.config({
     },
 
     decoration = {
-        rounding         = 6,
+        -- 4px geometry. Enough to read as intentional on a dark wallpaper,
+        -- small enough that the hard-edged AMOLED surface language survives.
+        rounding         = 4,
         active_opacity   = 1.0,
         inactive_opacity = 1.0,
 
-        -- FluorineOS disables drop shadows everywhere.
+        -- A short, strictly black shadow. It separates stacked windows on dark
+        -- wallpapers without tinting the palette: monochrome black cannot
+        -- introduce a hue, so the four design tokens stay authoritative.
         shadow = {
-            enabled = false,
+            enabled        = true,
+            range          = 12,
+            render_power   = 3,
+            color          = "rgba(000000ff)",
+            color_inactive = "rgba(000000ff)",
+            offset         = "0 3",
+            sharp          = false,
         },
 
+        -- Blur is reserved for the layer rules below, where Waybar, Fuzzel,
+        -- and SwayNC panels sit over window content. Window surfaces stay
+        -- opaque, so text contrast is untouched.
         blur = {
-            enabled = true,
-            size    = 5,
-            passes  = 2,
+            enabled           = true,
+            size              = 4,
+            passes            = 2,
+            new_optimizations = true,
         },
     },
 
@@ -109,21 +123,65 @@ hl.monitor({
 ---- ANIMATIONS ----
 --------------------
 
--- Crisp exponential ease-out with zero bounce: both control points stay
--- inside [0, 1], so no animation overshoots. The speeds below land in the
--- 0.16s-0.20s range.
-hl.curve("fluorineEaseOut", { type = "bezier", points = { {0.16, 1.0}, {0.3, 1.0} } })
+-- Two calibrated cubic-beziers, both monotonic and bounded by [0, 1] on the
+-- value axis, so nothing overshoots, springs, or bounces.
+--
+--   fluorineOut      cubic-bezier(0.16, 1.0, 0.30, 1.0)  decelerating ease-out
+--   fluorineOutFast  cubic-bezier(0.25, 1.0, 0.50, 1.0)  same shape, flatter tail
+--
+-- Hyprland derives an animation duration from 1 / speed, so the speeds below map
+-- to roughly 150-200ms: 6.6 is about 150ms, 5.0 is 200ms.
+hl.curve("fluorineOut",     { type = "bezier", points = { {0.16, 1.0}, {0.30, 1.0} } })
+hl.curve("fluorineOutFast", { type = "bezier", points = { {0.25, 1.0}, {0.50, 1.0} } })
 
-hl.animation({ leaf = "global",     enabled = true, speed = 5.0, bezier = "fluorineEaseOut" })
-hl.animation({ leaf = "border",     enabled = true, speed = 4.4, bezier = "fluorineEaseOut" })
-hl.animation({ leaf = "windows",    enabled = true, speed = 4.6, bezier = "fluorineEaseOut" })
-hl.animation({ leaf = "windowsIn",  enabled = true, speed = 4.6, bezier = "fluorineEaseOut" })
-hl.animation({ leaf = "windowsOut", enabled = true, speed = 4.0, bezier = "fluorineEaseOut" })
-hl.animation({ leaf = "fade",       enabled = true, speed = 4.2, bezier = "fluorineEaseOut" })
-hl.animation({ leaf = "fadeIn",     enabled = true, speed = 4.2, bezier = "fluorineEaseOut" })
-hl.animation({ leaf = "fadeOut",    enabled = true, speed = 4.0, bezier = "fluorineEaseOut" })
-hl.animation({ leaf = "layers",     enabled = true, speed = 4.4, bezier = "fluorineEaseOut" })
-hl.animation({ leaf = "workspaces", enabled = true, speed = 4.4, bezier = "fluorineEaseOut" })
+hl.animation({ leaf = "global",         enabled = true, speed = 6.6, bezier = "fluorineOut" })
+hl.animation({ leaf = "border",         enabled = true, speed = 6.6, bezier = "fluorineOut" })
+hl.animation({ leaf = "windows",        enabled = true, speed = 6.6, bezier = "fluorineOut" })
+hl.animation({ leaf = "windowsIn",      enabled = true, speed = 6.6, bezier = "fluorineOut",     style = "popin 97%" })
+hl.animation({ leaf = "windowsOut",     enabled = true, speed = 5.6, bezier = "fluorineOutFast", style = "popin 97%" })
+hl.animation({ leaf = "fade",           enabled = true, speed = 6.0, bezier = "fluorineOutFast" })
+hl.animation({ leaf = "fadeIn",         enabled = true, speed = 6.6, bezier = "fluorineOutFast" })
+hl.animation({ leaf = "fadeOut",        enabled = true, speed = 5.6, bezier = "fluorineOutFast" })
+-- Layer fade-in is what Fuzzel, Waybar popups, and SwayNC use.
+hl.animation({ leaf = "layers",         enabled = true, speed = 6.0, bezier = "fluorineOutFast" })
+hl.animation({ leaf = "layersIn",       enabled = true, speed = 6.6, bezier = "fluorineOutFast", style = "fade" })
+hl.animation({ leaf = "layersOut",      enabled = true, speed = 5.6, bezier = "fluorineOutFast", style = "fade" })
+hl.animation({ leaf = "fadeLayersIn",   enabled = true, speed = 6.6, bezier = "fluorineOutFast" })
+hl.animation({ leaf = "fadeLayersOut",  enabled = true, speed = 5.6, bezier = "fluorineOutFast" })
+-- Workspace switches slide rather than scale.
+hl.animation({ leaf = "workspaces",     enabled = true, speed = 5.6, bezier = "fluorineOutFast", style = "slide" })
+hl.animation({ leaf = "workspacesIn",   enabled = true, speed = 6.0, bezier = "fluorineOutFast", style = "slide" })
+hl.animation({ leaf = "workspacesOut",  enabled = true, speed = 5.6, bezier = "fluorineOutFast", style = "slide" })
+
+------------------------
+---- LAYER SURFACES ----
+------------------------
+
+-- Blur only the shell chrome that floats over window content. SwayNC ships two
+-- layer namespaces, so both are matched. ignore_alpha = 0 is the 0.55 spelling
+-- of the older ignorezero rule: fully transparent pixels stay unblurred instead
+-- of smearing the compositor background into the panel edge. Blur stays subtle
+-- (size 4, two passes) so panel text keeps full contrast against #0a0d10.
+hl.layer_rule({
+    name  = "fluorine-waybar",
+    match = { namespace = "^waybar$" },
+    blur        = true,
+    ignore_alpha = 0,
+})
+
+hl.layer_rule({
+    name  = "fluorine-fuzzel",
+    match = { namespace = "^fuzzel$" },
+    blur        = true,
+    ignore_alpha = 0,
+})
+
+hl.layer_rule({
+    name  = "fluorine-swaync",
+    match = { namespace = "^swaync-control-center$|^swaync-notification-window$" },
+    blur        = true,
+    ignore_alpha = 0,
+})
 
 ---------------------
 ---- AUTOSTART ------
@@ -137,6 +195,9 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("lxpolkit")
     hl.exec_cmd("hypridle")
     hl.exec_cmd("swaybg -c '#000000'")
+    -- Reapply the display shader chosen before the last logout, so the look
+    -- survives a restart instead of silently resetting to color-accurate.
+    hl.exec_cmd("flr-shader restore")
     -- Apply the kanshi profile whenever outputs change, so docking an external
     -- monitor reconfigures the layout without manual hyprctl commands.
     hl.exec_cmd("kanshi")
@@ -186,6 +247,8 @@ hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(
 
 -- FluorineOS utilities
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd("flr-shot"))
+-- Cycle the display shader off, night, mono (color-accurate by default).
+hl.bind(mainMod .. " + SHIFT + N", hl.dsp.exec_cmd("flr-shader cycle"))
 hl.bind(mainMod .. " + slash",     hl.dsp.exec_cmd("flr-keys"))
 -- Unified system menu: network, Bluetooth, display, audio, power, and session.
 hl.bind(mainMod .. " + Escape",    hl.dsp.exec_cmd("flr-ctl"))
