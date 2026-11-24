@@ -60,6 +60,27 @@ window#waybar {
     color: #f85149;
 }
 
+#bluetooth,
+#custom-power {
+    padding: 0 12px;
+    color: #e2e8f0;
+}
+
+#bluetooth.disabled,
+#bluetooth.off,
+#custom-power.unavailable {
+    color: #6e7681;
+}
+
+#bluetooth.connected,
+#custom-power.performance {
+    color: #b4f03a;
+}
+
+#custom-power.power-saver {
+    color: #6e7681;
+}
+
 #battery.warning {
     color: #b4f03a;
 }

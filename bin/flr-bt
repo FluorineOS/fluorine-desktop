@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-bt"
+
+usage() {
+    printf 'Usage: %s\n\n' "${program}"
+    printf 'Open the Bluetooth manager. blueman-manager is used when it is\n'
+    printf 'installed, otherwise bluetoothctl opens in a floating terminal.\n'
+}
+
+die() {
+    printf '%s: %s\n' "${program}" "$*" >&2
+    exit 1
+}
+
+case "${1:-}" in
+    -h | --help)
+        usage
+        exit 0
+        ;;
+esac
+
+if command -v blueman-manager >/dev/null 2>&1; then
+    if command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+        exec hyprctl dispatch exec "[float;size 960 680;center] blueman-manager"
+    fi
+
+    exec blueman-manager
+fi
+
+if command -v flr-tui >/dev/null 2>&1 && command -v bluetoothctl >/dev/null 2>&1; then
+    exec flr-tui bluetoothctl
+fi
+
+die "no Bluetooth manager is installed"

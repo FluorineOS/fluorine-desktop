@@ -5,7 +5,13 @@
     "spacing": 0,
     "modules-left": ["hyprland/workspaces", "hyprland/window"],
     "modules-center": ["clock"],
-    "modules-right": ["pulseaudio", "network", "battery"],
+    "modules-right": [
+        "custom/power",
+        "bluetooth",
+        "network",
+        "pulseaudio",
+        "battery"
+    ],
 
     "hyprland/workspaces": {
         "format": "{id}",
@@ -32,8 +38,29 @@
     "network": {
         "format-wifi": "WIFI {essid}",
         "format-ethernet": "ETH {ifname}",
+        "format-linked": "ETH {ifname}",
         "format-disconnected": "OFFLINE",
-        "tooltip-format": "{ifname} via {gwaddr}"
+        "tooltip-format": "{ifname} via {gwaddr}",
+        "tooltip-format-wifi": "{essid} {signaldBm} dBm\n{ipaddr}",
+        "tooltip-format-ethernet": "{ifname}\n{ipaddr}",
+        "on-click": "flr-tui nmtui"
+    },
+
+    "bluetooth": {
+        "format": "BT {status}",
+        "format-disabled": "BT OFF",
+        "format-connected": "BT {num_connections}",
+        "tooltip-format": "{controller_alias} {controller_address}",
+        "tooltip-format-connected": "{controller_alias} {controller_address}\n{device_enumerate}",
+        "on-click": "flr-bt",
+        "on-click-right": "flr-tui bluetoothctl"
+    },
+
+    "custom/power": {
+        "exec": "flr-power waybar",
+        "return-type": "json",
+        "interval": 10,
+        "on-click": "flr-power cycle"
     },
 
     "battery": {

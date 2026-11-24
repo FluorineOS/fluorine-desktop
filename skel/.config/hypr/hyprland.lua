@@ -137,6 +137,9 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("lxpolkit")
     hl.exec_cmd("hypridle")
     hl.exec_cmd("swaybg -c '#000000'")
+    -- Apply the kanshi profile whenever outputs change, so docking an external
+    -- monitor reconfigures the layout without manual hyprctl commands.
+    hl.exec_cmd("kanshi")
     -- Clipboard history: cliphist stores every text and image selection.
     hl.exec_cmd("wl-paste --watch cliphist store")
     -- First interactive login shows the keybinding cheat sheet once.

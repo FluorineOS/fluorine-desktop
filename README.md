@@ -23,15 +23,19 @@
 | `/etc/skel/.config/kitty/kitty.conf` | Kitty terminal theme |
 | `/etc/skel/.config/fuzzel/fuzzel.ini` | Fuzzel launcher theme |
 | `/etc/skel/.config/swaync/style.css` | SwayNotificationCenter theme |
+| `/etc/skel/.config/kanshi/config` | Display profiles applied on output hotplug |
 | `/usr/bin/flr-shot` | Interactive area screenshot |
 | `/usr/bin/flr-keys` | Keybinding reference dialog |
 | `/usr/bin/flr-doctor` | Hardware, session, and service diagnostic report |
 | `/usr/bin/flr-onboard` | One-time first-login keybinding guide |
+| `/usr/bin/flr-tui` | Run a terminal interface in a floating Kitty window |
+| `/usr/bin/flr-bt` | Bluetooth manager launcher |
+| `/usr/bin/flr-power` | Power profile status and cycling for Waybar |
 
 ## Desktop Behavior
 
-The session starts `hypridle`, `cliphist` through `wl-paste --watch`, and `flr-onboard`
-from the Hyprland autostart hook.
+The session starts `hypridle`, `kanshi`, `cliphist` through `wl-paste --watch`, and
+`flr-onboard` from the Hyprland autostart hook.
 
 | Feature | Binding or trigger |
 | --- | --- |
@@ -42,6 +46,24 @@ from the Hyprland autostart hook.
 | Volume up, down, mute | `XF86AudioRaiseVolume`, `XF86AudioLowerVolume`, `XF86AudioMute` |
 | Microphone mute | `XF86AudioMicMute` |
 | Brightness | `XF86MonBrightnessUp`, `XF86MonBrightnessDown` |
+| Wi-Fi and Ethernet | Click the Waybar network module, or run `flr-tui nmtui` |
+| Bluetooth pairing | Click the Waybar Bluetooth module, or run `flr-bt` |
+| Power profile | Click the Waybar power module; it cycles power-saver, balanced, performance |
+| External display | Connect an HDMI or DisplayPort monitor; kanshi applies a profile |
+
+The network module calls `nmtui` from NetworkManager inside a floating Kitty window, so
+Wi-Fi, Ethernet, VPN, and connection editing stay in one interface. The Bluetooth module
+opens `blueman-manager`; when that package is absent it falls back to `bluetoothctl` in the
+same floating terminal.
+
+`flr-power` reads `powerprofilesctl` and degrades cleanly on hardware without an ACPI
+platform profile driver: the module shows `PWR N/A` and a click reports that profiles are
+unavailable instead of failing.
+
+`kanshi` watches output events. The shipped profile matches every output, keeping the
+preferred mode, automatic placement, and unity scale, so docking and undocking do not
+require manual `hyprctl` commands. Use `wdisplays` for interactive layout adjustments and
+`hyprctl monitors` to read connector names before writing explicit profiles.
 
 The brightness keys and the idle dim step discard errors when no backlight device is
 present, which is the normal case in a virtual machine.
@@ -51,12 +73,14 @@ present, which is the normal case in a virtual machine.
 | Field | Value |
 | --- | --- |
 | Name | `fluorine-desktop` |
-| Version | `0.1.2` |
+| Version | `0.2.0` |
 | Architecture | `all` |
 
 Runtime dependencies are declared by the package: `hyprland`, `hypridle`, `hyprlock`,
 `waybar`, `kitty`, `fuzzel`, `sway-notification-center`, `swaybg`, `grim`, `slurp`,
-`wl-clipboard`, `cliphist`, `brightnessctl`, `wireplumber`, `jq`, and `libnotify-bin`.
+`wl-clipboard`, `cliphist`, `brightnessctl`, `wireplumber`, `jq`, `libnotify-bin`,
+`network-manager`, `bluez`, `blueman`, `power-profiles-daemon`, `kanshi`, and
+`wdisplays`. `nmtui` ships inside `network-manager`.
 
 ## Install
 

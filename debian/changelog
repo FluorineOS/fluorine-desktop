@@ -1,3 +1,18 @@
+fluorine-desktop (0.2.0) trixie; urgency=medium
+
+  * Add NetworkManager and Bluetooth controls to Waybar: the network module
+    opens nmtui in a floating Kitty window and the Bluetooth module opens
+    blueman-manager, falling back to bluetoothctl.
+  * Add power-profiles-daemon integration through flr-power, with a Waybar
+    status module and click cycling through power-saver, balanced, and
+    performance. Systems without a platform profile driver report PWR N/A.
+  * Ship a kanshi profile and autostart kanshi so external HDMI and DisplayPort
+    monitors are configured automatically when docked.
+  * Depend on network-manager, bluez, blueman, power-profiles-daemon, kanshi,
+    and wdisplays, and install the flr-tui and flr-bt helpers.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Tue, 24 Nov 2026 20:20:00 +0530
+
 fluorine-desktop (0.1.2) trixie; urgency=medium
 
   * Correct the Debian copyright holder to Gowtham G.K so the installed

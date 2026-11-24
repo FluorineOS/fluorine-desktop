@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-power"
+readonly -a profiles=(power-saver balanced performance)
+
+usage() {
+    printf 'Usage: %s [status|cycle|waybar]\n\n' "${program}"
+    printf 'Print the active power profile, cycle to the next profile, or emit the\n'
+    printf 'Waybar module payload. Systems without an ACPI platform profile driver\n'
+    printf 'report PWR N/A instead of failing.\n'
+}
+
+current_profile() {
+    command -v powerprofilesctl >/dev/null 2>&1 || return 1
+    powerprofilesctl get 2>/dev/null || return 1
+}
+
+format_label() {
+    case "${1}" in
+        power-saver)
+            printf 'PWR SAVE'
+            ;;
+        balanced)
+            printf 'PWR BAL'
+            ;;
+        performance)
+            printf 'PWR PERF'
+            ;;
+        *)
+            printf 'PWR N/A'
+            ;;
+    esac
+}
+
+next_profile() {
+    local current="${1}"
+    local index next
+
+    for index in "${!profiles[@]}"; do
+        if [[ "${profiles[index]}" == "${current}" ]]; then
+            next=$(( (index + 1) % ${#profiles[@]} ))
+            printf '%s' "${profiles[next]}"
+            return 0
+        fi
+    done
+
+    printf '%s' "${profiles[0]}"
+}
+
+emit_unavailable() {
+    case "${1}" in
+        waybar)
+            printf '{"text": "PWR N/A", "class": "unavailable", "tooltip": "Power profiles are unavailable on this system"}\n'
+            ;;
+        cycle)
+            printf 'Power profiles are unavailable on this system.\n' >&2
+            ;;
+        *)
+            printf 'PWR N/A\n'
+            ;;
+    esac
+}
+
+main() {
+    local action="${1:-status}"
+    local profile target
+
+    case "${action}" in
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        status | cycle | waybar) ;;
+        *)
+            usage >&2
+            exit 2
+            ;;
+    esac
+
+    if ! profile="$(current_profile)"; then
+        emit_unavailable "${action}"
+        exit 0
+    fi
+
+    case "${action}" in
+        status)
+            printf '%s\n' "$(format_label "${profile}")"
+            ;;
+        waybar)
+            printf '{"text": "%s", "class": "%s", "tooltip": "Power profile: %s"}\n' \
+                "$(format_label "${profile}")" "${profile}" "${profile}"
+            ;;
+        cycle)
+            target="$(next_profile "${profile}")"
+            if powerprofilesctl set "${target}" >/dev/null 2>&1; then
+                printf '%s\n' "$(format_label "${target}")"
+            else
+                printf '%s\n' "$(format_label "${profile}")"
+            fi
+            ;;
+    esac
+}
+
+main "$@"

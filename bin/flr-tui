@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-tui"
+
+usage() {
+    printf 'Usage: %s <command> [arguments...]\n\n' "${program}"
+    printf 'Run a terminal user interface inside a floating Kitty window.\n'
+    printf 'Without a Hyprland session the interface opens as a normal window.\n\n'
+    printf 'Example: %s nmtui\n' "${program}"
+}
+
+die() {
+    printf '%s: %s\n' "${program}" "$*" >&2
+    exit 1
+}
+
+case "${1:-}" in
+    "")
+        usage >&2
+        exit 2
+        ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+esac
+
+command -v kitty >/dev/null 2>&1 || die "kitty is required but was not found"
+
+# Quote every argument so the compositor receives the same command line this
+# script was invoked with.
+quoted=""
+for argument in "$@"; do
+    printf -v piece '%q ' "${argument}"
+    quoted+="${piece}"
+done
+quoted="${quoted% }"
+
+title="$(printf '%s' "${1}" | tr '[:lower:]' '[:upper:]')"
+readonly title
+readonly class="flr-tui"
+
+if command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+    # The inline rule floats and centres the window, so the interface appears
+    # as a dialog instead of replacing the current workspace layout.
+    exec hyprctl dispatch exec "[float;size 1100 720;center] kitty --class ${class} --title ${title} -e ${quoted}"
+fi
+
+exec kitty --class "${class}" --title "${title}" -e "$@"
