@@ -6,6 +6,7 @@
     "modules-left": ["hyprland/workspaces", "hyprland/window"],
     "modules-center": ["clock"],
     "modules-right": [
+        "custom/mode",
         "custom/system",
         "custom/power",
         "bluetooth",
@@ -55,6 +56,14 @@
         "tooltip-format-connected": "{controller_alias} {controller_address}\n{device_enumerate}",
         "on-click": "flr-bt",
         "on-click-right": "flr-tui bluetoothctl"
+    },
+
+    "custom/mode": {
+        "exec": "flr-mode status",
+        "interval": 0,
+        "signal": 10,
+        "tooltip": "Workstation mode (SUPER + M)",
+        "on-click": "flr-mode"
     },
 
     "custom/system": {

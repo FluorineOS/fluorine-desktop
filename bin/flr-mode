@@ -1,0 +1,232 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-mode"
+readonly state_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/fluorine"
+readonly mode_file="${state_dir}/mode"
+readonly hidden_file="${state_dir}/bar-hidden"
+
+# Layout values that mirror skel/.config/hypr/hyprland.lua, so returning to the
+# work profile restores exactly what the session started with.
+readonly work_gaps_in=4
+readonly work_gaps_out=6
+readonly work_border=2
+
+usage() {
+    printf 'Usage: %s [work|focus|present|next|status]\n\n' "${program}"
+    printf 'Switch the workstation profile. With no argument the profile picker\n'
+    printf 'opens in Fuzzel.\n\n'
+    printf 'Profiles:\n'
+    printf '  work     Session defaults: normal gaps, Waybar visible, notifications on.\n'
+    printf '  focus    No gaps, one-pixel border, Waybar hidden, do not disturb on.\n'
+    printf '  present  Wide gaps, full contrast, no idle locking, do not disturb on.\n\n'
+    printf 'Commands:\n'
+    printf '  next     Advance to the following profile.\n'
+    printf '  status   Print the current profile label (WORK, FOCUS, PRESENT).\n'
+}
+
+die() {
+    printf '%s: %s\n' "${program}" "$*" >&2
+    exit 1
+}
+
+note() {
+    printf '%s\n' "$*" >&2
+}
+
+require_state_dir() {
+    mkdir -p "${state_dir}"
+}
+
+current_mode() {
+    local mode="work"
+
+    if [ -f "${mode_file}" ]; then
+        mode=$(<"${mode_file}")
+    fi
+
+    case "${mode}" in
+        work | focus | present) printf '%s' "${mode}" ;;
+        *) printf 'work' ;;
+    esac
+}
+
+label_for() {
+    case "$1" in
+        work) printf 'WORK' ;;
+        focus) printf 'FOCUS' ;;
+        present) printf 'PRESENT' ;;
+    esac
+}
+
+bar_hidden() {
+    [ -f "${hidden_file}" ] && [ "$(<"${hidden_file}")" = "1" ]
+}
+
+write_state() {
+    require_state_dir
+    printf '%s' "$1" >"${mode_file}"
+}
+
+hyprland_active() {
+    [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1
+}
+
+apply_layout() {
+    if ! hyprland_active; then
+        note "${program}: Hyprland is not running; layout changes skipped"
+        return 0
+    fi
+
+    # One batch call keeps the profile change atomic from the compositor's view.
+    hyprctl --batch "$1" >/dev/null
+}
+
+hide_bar() {
+    if bar_hidden; then
+        return 0
+    fi
+
+    if pkill -SIGUSR1 -x waybar 2>/dev/null; then
+        require_state_dir
+        printf '1' >"${hidden_file}"
+    fi
+}
+
+show_bar() {
+    if ! bar_hidden; then
+        return 0
+    fi
+
+    if pkill -SIGUSR1 -x waybar 2>/dev/null; then
+        require_state_dir
+        printf '0' >"${hidden_file}"
+    fi
+}
+
+set_dnd() {
+    if command -v swaync-client >/dev/null 2>&1; then
+        swaync-client "$1" >/dev/null 2>&1 || true
+    fi
+}
+
+idle_running() {
+    systemctl --user is-active --quiet hypridle 2>/dev/null
+}
+
+stop_idle() {
+    if idle_running; then
+        systemctl --user stop hypridle >/dev/null 2>&1 || true
+    fi
+}
+
+start_idle() {
+    if ! idle_running; then
+        systemctl --user start hypridle >/dev/null 2>&1 || true
+    fi
+}
+
+refresh_outputs() {
+    if pgrep -x kanshi >/dev/null 2>&1; then
+        pkill -HUP -x kanshi 2>/dev/null || true
+    fi
+}
+
+refresh_badge() {
+    pkill -RTMIN+10 -x waybar 2>/dev/null || true
+}
+
+notify_mode() {
+    local label=$1
+
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -a "${program}" "Workstation mode" "${label}" 2>/dev/null || true
+    fi
+}
+
+switch_to() {
+    local mode=$1
+    local label
+
+    case "${mode}" in
+        work | focus | present) ;;
+        *) die "unknown profile: ${mode}" ;;
+    esac
+
+    label=$(label_for "${mode}")
+
+    case "${mode}" in
+        work)
+            apply_layout "keyword general:gaps_in ${work_gaps_in};keyword general:gaps_out ${work_gaps_out};keyword general:border_size ${work_border};keyword decoration:inactive_opacity 1.0"
+            show_bar
+            set_dnd --dnd-off
+            start_idle
+            ;;
+        focus)
+            apply_layout "keyword general:gaps_in 0;keyword general:gaps_out 0;keyword general:border_size 1;keyword decoration:inactive_opacity 0.85"
+            hide_bar
+            set_dnd --dnd-on
+            ;;
+        present)
+            apply_layout "keyword general:gaps_in ${work_gaps_in};keyword general:gaps_out 14;keyword general:border_size ${work_border};keyword decoration:inactive_opacity 1.0"
+            show_bar
+            set_dnd --dnd-on
+            stop_idle
+            refresh_outputs
+            ;;
+    esac
+
+    write_state "${mode}"
+    refresh_badge
+    notify_mode "${label}"
+    printf '%s\n' "${label}"
+}
+
+pick_mode() {
+    local selection
+
+    if ! command -v fuzzel >/dev/null 2>&1; then
+        die "fuzzel is required to pick a profile; pass a profile name instead"
+    fi
+
+    selection=$(printf '%s\n' "work" "focus" "present" |
+        fuzzel --dmenu --prompt "Mode > " --lines 3 --width 24) || exit 0
+
+    [ -n "${selection}" ] || exit 0
+    switch_to "${selection}"
+}
+
+next_mode() {
+    case "$(current_mode)" in
+        work) switch_to focus ;;
+        focus) switch_to present ;;
+        present) switch_to work ;;
+    esac
+}
+
+main() {
+    case "${1:-}" in
+        "")
+            pick_mode
+            ;;
+        -h | --help)
+            usage
+            ;;
+        status)
+            label_for "$(current_mode)"
+            printf '\n'
+            ;;
+        next)
+            next_mode
+            ;;
+        work | focus | present)
+            switch_to "$1"
+            ;;
+        *)
+            usage >&2
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"

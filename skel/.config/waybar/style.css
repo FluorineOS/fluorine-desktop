@@ -62,9 +62,21 @@ window#waybar {
 
 #bluetooth,
 #custom-power,
+#custom-mode,
 #custom-system {
     padding: 0 12px;
     color: #e2e8f0;
+}
+
+/* The mode badge stays muted so it never competes with the accent, which is
+   reserved for focus and active states. */
+#custom-mode {
+    padding: 0 10px;
+    color: #6e7681;
+}
+
+#custom-mode:active {
+    color: #b4f03a;
 }
 
 #bluetooth.disabled,

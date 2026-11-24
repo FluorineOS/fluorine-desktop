@@ -189,6 +189,7 @@ hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd("flr-shot"))
 hl.bind(mainMod .. " + slash",     hl.dsp.exec_cmd("flr-keys"))
 -- Unified system menu: network, Bluetooth, display, audio, power, and session.
 hl.bind(mainMod .. " + Escape",    hl.dsp.exec_cmd("flr-ctl"))
+hl.bind(mainMod .. " + M",         hl.dsp.exec_cmd("flr-mode"))
 
 -- Move focus with the arrow keys.
 hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left" }))

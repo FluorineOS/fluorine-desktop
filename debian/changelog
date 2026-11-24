@@ -1,3 +1,15 @@
+fluorine-desktop (0.5.0) trixie; urgency=medium
+
+  * Add flr-mode, which switches between the work, focus, and present
+    workstation profiles in one compositor batch, reports the active profile in
+    the Waybar badge, and is bound to SUPER + M.
+  * Add flr-box, a rootless Podman and Distrobox wrapper with init, enter,
+    export, and list subcommands so development toolchains stay out of the host
+    APT database.
+  * Depend on podman and distrobox.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Tue, 24 Nov 2026 23:40:00 +0530
+
 fluorine-desktop (0.4.0) trixie; urgency=medium
 
   * Add flr-snapshot, which creates, lists, and rolls back Btrfs snapshots

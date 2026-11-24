@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-box"
+readonly state_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/fluorine"
+readonly box_file="${state_dir}/box"
+readonly export_dir="${HOME}/.local/bin"
+
+usage() {
+    printf 'Usage: %s <command> [argument]\n\n' "${program}"
+    printf 'Run isolated development containers with rootless Podman and Distrobox,\n'
+    printf 'so toolchains and language runtimes stay out of the host APT database.\n\n'
+    printf 'Commands:\n'
+    printf '  init [arch|debian|fedora]  Create the development box (default debian).\n'
+    printf '  enter                      Open a shell in the current box.\n'
+    printf '  export <binary>            Publish a container binary into ~/.local/bin.\n'
+    printf '  list                       Show the boxes and the current selection.\n'
+    printf '  --help                     Show this help.\n'
+}
+
+die() {
+    printf '%s: %s\n' "${program}" "$*" >&2
+    exit 1
+}
+
+note() {
+    printf '%s\n' "$*" >&2
+}
+
+require_user() {
+    if [ "$(id -u)" -eq 0 ]; then
+        die "run as your desktop user; rootless Podman has no containers for root"
+    fi
+}
+
+require_tools() {
+    command -v podman >/dev/null 2>&1 || die "podman is required but was not found"
+    command -v distrobox >/dev/null 2>&1 || die "distrobox is required but was not found"
+}
+
+image_for() {
+    case "$1" in
+        arch) printf 'docker.io/library/archlinux:latest' ;;
+        debian) printf 'docker.io/library/debian:stable' ;;
+        fedora) printf 'quay.io/fedora/fedora:latest' ;;
+        *) die "unknown distribution: $1 (expected arch, debian, or fedora)" ;;
+    esac
+}
+
+box_name() {
+    printf 'fluorine-%s' "$1"
+}
+
+write_current() {
+    mkdir -p "${state_dir}"
+    printf '%s' "$1" >"${box_file}"
+}
+
+current_box() {
+    if [ ! -f "${box_file}" ]; then
+        return 1
+    fi
+
+    local name
+    name=$(<"${box_file}")
+    [ -n "${name}" ] || return 1
+    printf '%s' "${name}"
+}
+
+require_current() {
+    current_box || die "no box is selected yet; run: ${program} init debian"
+}
+
+init_box() {
+    local distribution=${1:-debian}
+    local image name
+
+    image=$(image_for "${distribution}")
+    name=$(box_name "${distribution}")
+
+    note "Creating ${name} from ${image}"
+    distrobox create --name "${name}" --image "${image}" --yes
+    write_current "${name}"
+
+    note ""
+    note "Box ready: ${name}"
+    note ""
+    note "  ${program} enter            open a shell"
+    note "  ${program} export <binary>  publish a command into ${export_dir}"
+    note ""
+    note "Containers are rootless and keep their packages outside the host APT"
+    note "database. Remove this one with: distrobox rm ${name}"
+}
+
+enter_box() {
+    local name
+    name=$(require_current)
+    exec distrobox enter "${name}"
+}
+
+export_binary() {
+    local binary=${1:-}
+    local name target
+
+    [ -n "${binary}" ] || die "export needs a binary path, for example: ${program} export /usr/bin/node"
+    name=$(require_current)
+
+    case "${binary}" in
+        /*) target=${binary} ;;
+        *) target="/usr/bin/${binary}" ;;
+    esac
+
+    mkdir -p "${export_dir}"
+    distrobox enter "${name}" -- distrobox-export --bin "${target}" --export-path "${export_dir}"
+
+    note ""
+    note "Exported ${target} into ${export_dir}."
+    note "That directory must be on PATH; the FluorineOS session already includes it."
+}
+
+list_boxes() {
+    local name=""
+
+    name=$(current_box || true)
+
+    distrobox list || true
+
+    if [ -n "${name}" ]; then
+        note ""
+        note "Current box: ${name}"
+    else
+        note ""
+        note "No box selected yet; run: ${program} init debian"
+    fi
+}
+
+main() {
+    local command=${1:-}
+    local argument=${2:-}
+
+    case "${command}" in
+        -h | --help)
+            usage
+            return 0
+            ;;
+        "")
+            usage >&2
+            exit 2
+            ;;
+        init | enter | export | list) ;;
+        *)
+            usage >&2
+            exit 2
+            ;;
+    esac
+
+    require_user
+    require_tools
+
+    case "${command}" in
+        init)
+            init_box "${argument}"
+            ;;
+        enter)
+            enter_box
+            ;;
+        export)
+            export_binary "${argument}"
+            ;;
+        list)
+            list_boxes
+            ;;
+    esac
+}
+
+main "$@"

@@ -12,7 +12,7 @@ Depends: hyprland, hypridle, hyprlock, waybar, kitty, fuzzel,
  sway-notification-center, swaybg, grim, slurp, wl-clipboard, cliphist,
  brightnessctl, wireplumber, jq, libnotify-bin, network-manager, bluez,
  blueman, power-profiles-daemon, kanshi, wdisplays, pulsemixer, pavucontrol,
- btrfs-progs, snapper
+ btrfs-progs, snapper, podman, distrobox
 Description: FluorineOS AMOLED Hyprland desktop environment
  FluorineOS desktop configuration for Hyprland 0.55 and later, built on a
  pure AMOLED black base with a reactive lime accent.
@@ -35,6 +35,11 @@ Description: FluorineOS AMOLED Hyprland desktop environment
  .
  flr-snapshot creates, lists, and rolls back Btrfs snapshots through snapper,
  refreshing the GRUB menu when a snapshot generator is installed.
+ .
+ flr-mode switches between work, focus, and present workstation profiles and
+ reports the active profile in the Waybar badge. flr-box creates development
+ containers with rootless Podman and Distrobox so toolchains stay off the host
+ APT database.
  .
  Configuration is installed into /etc/skel/.config so that newly created
  users receive the FluorineOS desktop on first login. The first interactive

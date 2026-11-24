@@ -34,6 +34,8 @@
 | `/usr/bin/flr-ctl` | Unified Fuzzel system menu |
 | `/usr/bin/flr-update` | APT refresh, upgrade summary, and reboot report |
 | `/usr/bin/flr-snapshot` | Btrfs snapshot create, list, and rollback |
+| `/usr/bin/flr-mode` | Work, focus, and present workstation profiles |
+| `/usr/bin/flr-box` | Rootless Podman and Distrobox development boxes |
 
 ## Desktop Behavior
 
@@ -53,6 +55,7 @@ The session starts `hypridle`, `kanshi`, `cliphist` through `wl-paste --watch`, 
 | Bluetooth pairing | Click the Waybar Bluetooth module, or run `flr-bt` |
 | Power profile | Click the Waybar power module; it cycles power-saver, balanced, performance |
 | System menu | `SUPER + Escape`, or click the Waybar SYS indicator |
+| Workstation mode | `SUPER + M`, or click the Waybar mode badge |
 | External display | Connect an HDMI or DisplayPort monitor; kanshi applies a profile |
 
 The network module calls `nmtui` from NetworkManager inside a floating Kitty window, so
@@ -83,6 +86,21 @@ read-only snapshot and refreshes the GRUB menu when a snapshot generator is inst
 reboot steps. Installations created by Calamares mount `@`, `@home`, and `@snapshots`, so
 a rollback replaces the system subvolume without touching `/home` or the snapshot store.
 
+`flr-mode` switches the whole workstation between three profiles in one compositor
+batch, and reports the active profile as `WORK`, `FOCUS`, or `PRESENT` in the Waybar badge.
+`work` restores the session defaults with gaps at 4 and 6, a two-pixel border, full
+opacity, notifications on, and the idle daemon running. `focus` removes gaps, drops the
+border to one pixel, dims inactive windows to 0.85, hides Waybar, and enables do not
+disturb. `present` widens the outer gaps to 14, holds full contrast, keeps notifications
+quiet, stops `hypridle` so the screen never locks, and nudges `kanshi` to reapply output
+profiles. The profile is remembered in `~/.local/state/fluorine/mode`, so the badge is
+correct after a reload.
+
+`flr-box` keeps language runtimes and toolchains out of the host APT database by running
+them in rootless Podman containers managed through Distrobox. `flr-box init debian` (or
+`arch` and `fedora`) creates a box, `flr-box enter` opens a shell, `flr-box export <binary>`
+publishes a container command into `~/.local/bin`, and `flr-box list` shows the boxes.
+
 `kanshi` watches output events. The shipped profile matches every output, keeping the
 preferred mode, automatic placement, and unity scale, so docking and undocking do not
 require manual `hyprctl` commands. Use `wdisplays` for interactive layout adjustments and
@@ -96,15 +114,15 @@ present, which is the normal case in a virtual machine.
 | Field | Value |
 | --- | --- |
 | Name | `fluorine-desktop` |
-| Version | `0.4.0` |
+| Version | `0.5.0` |
 | Architecture | `all` |
 
 Runtime dependencies are declared by the package: `hyprland`, `hypridle`, `hyprlock`,
 `waybar`, `kitty`, `fuzzel`, `sway-notification-center`, `swaybg`, `grim`, `slurp`,
 `wl-clipboard`, `cliphist`, `brightnessctl`, `wireplumber`, `jq`, `libnotify-bin`,
 `network-manager`, `bluez`, `blueman`, `power-profiles-daemon`, `kanshi`,
-`wdisplays`, `pulsemixer`, `pavucontrol`, `btrfs-progs`, and `snapper`. `nmtui` ships
-inside `network-manager`.
+`wdisplays`, `pulsemixer`, `pavucontrol`, `btrfs-progs`, `snapper`, `podman`, and
+`distrobox`. `nmtui` ships inside `network-manager`.
 
 ## Install
 
