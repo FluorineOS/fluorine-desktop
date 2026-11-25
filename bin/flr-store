@@ -29,7 +29,7 @@ CSS = """
 window {
     background-color: #000000;
     color: #e2e8f0;
-    font-family: "Space Grotesk", "Inter", sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-size: 13px;
 }
 
@@ -52,31 +52,31 @@ headerbar windowtitle {
 }
 
 .nav-list {
-    background: transparent;
+    background: #000000;
     margin: 8px;
 }
 
 .nav-list row {
-    background: transparent;
-    border: 1.5px solid transparent;
+    background: #000000;
+    border: 1.5px solid #1c2229;
     border-radius: 0;
     padding: 7px 9px;
     color: #6e7681;
 }
 
 .nav-list row:hover {
-    border-color: #1c2229;
+    border-color: #b4f03a;
     color: #e2e8f0;
 }
 
 .nav-list row:selected {
-    background: #b4f03a;
+    background: #2a3812;
     border-color: #b4f03a;
 }
 
 .nav-list row:selected label,
 .nav-list row:selected image {
-    color: #000000;
+    color: #e2e8f0;
 }
 
 .content-pane {
@@ -142,13 +142,15 @@ button.action {
 }
 
 button.action:hover {
-    background: #c6f75e;
-    border-color: #c6f75e;
+    background: #b4f03a;
+    border-color: #e2e8f0;
     color: #000000;
 }
 
 button:disabled {
-    opacity: 0.45;
+    background: #000000;
+    border-color: #1c2229;
+    color: #6e7681;
 }
 
 .status-pill {
@@ -169,7 +171,7 @@ button:focus-visible,
 
 button:active,
 .nav-list row:active {
-    background: #141920;
+    background: #2a3812;
     border-color: #b4f03a;
 }
 """
@@ -255,12 +257,12 @@ CATEGORIES = (
                 "icon": "browser",
             },
             {
-                "id": "epiphany",
+                "id": "epiphany-browser",
                 "title": "Epiphany",
-                "summary": "Lightweight web engine for reading and research.",
+                "summary": "GNOME web browser for reading and research.",
                 "source": "apt",
-                "package": "epiphany",
-                "command": "epiphany",
+                "package": "epiphany-browser",
+                "command": "epiphany-browser",
                 "icon": "browser",
             },
         ),
@@ -400,7 +402,8 @@ def launch_float(command, width=980, height=660):
     """Open a tool as a floating, centred window when Hyprland is running."""
     if hyprland_running():
         rule = f"[float;size {width} {height};center] {command}"
-        return run(["hyprctl", "dispatch", "exec", rule], timeout=8) is not None
+        result = run(["hyprctl", "dispatch", "exec", rule], timeout=8)
+        return result is not None and result.returncode == 0
     try:
         subprocess.Popen(command.split(), start_new_session=True)
         return True
@@ -408,21 +411,34 @@ def launch_float(command, width=980, height=660):
         return False
 
 
-def install_command(source, package):
-    """Return the argv and environment for a curated install."""
+def install_commands(source, package):
+    """Return the argv lists needed for a curated install."""
     if source == "apt":
-        return (
-            ["apt-get", "install", "-y", package],
-            dict(os.environ, DEBIAN_FRONTEND="noninteractive"),
-        )
+        return [
+            [
+                "pkexec",
+                "env",
+                "DEBIAN_FRONTEND=noninteractive",
+                "apt-get",
+                "install",
+                "-y",
+                package,
+            ]
+        ]
     if source == "flatpak":
-        return (
+        return [
+            [
+                "flatpak",
+                "remote-add",
+                "--if-not-exists",
+                "flathub",
+                "https://dl.flathub.org/repo/flathub.flatpakrepo",
+            ],
             ["flatpak", "install", "-y", "flathub", package],
-            dict(os.environ),
-        )
+        ]
     if source == "flr-box":
-        return (["flr-box", "init", package], dict(os.environ))
-    return None, dict(os.environ)
+        return [["flr-box", "init", package]]
+    return []
 
 
 def apt_installed(package):
@@ -479,6 +495,10 @@ class StoreWindow(Adw.ApplicationWindow):
         self.status_pill.add_css_class("status-pill")
         self.status_pill.set_visible(False)
         header.pack_end(self.status_pill)
+
+        for category in CATEGORIES:
+            for entry in category["entries"]:
+                self.installed[entry["id"]] = self.is_installed(entry)
 
         self.split = Adw.NavigationSplitView()
         self.split.set_min_sidebar_width(210)
@@ -634,12 +654,11 @@ class StoreWindow(Adw.ApplicationWindow):
         source.add_css_class("value")
         box.append(source)
 
-        install_button = Gtk.Button(label="Install")
+        installed = self.installed[entry["id"]]
+        install_button = Gtk.Button(label="Installed" if installed else "Install")
         install_button.set_cursor_from_name("pointer")
         install_button.set_tooltip_text("Install through apt, Flatpak, or the flr-box container")
-        if self.installed.get(entry["id"]):
-            install_button.set_label("Installed")
-        if not self.installed.get(entry["id"]):
+        if not installed:
             install_button.add_css_class("action")
         install_button.connect(
             "clicked", lambda _button, target=entry: self.on_install(target, install_button)
@@ -660,7 +679,6 @@ class StoreWindow(Adw.ApplicationWindow):
         box.append(button_box)
         parent.append(box)
 
-        self.installed[entry["id"]] = self.is_installed(entry)
         self.install_buttons[entry["id"]] = install_button
         if launch_button is not None:
             self.launch_buttons[entry["id"]] = launch_button
@@ -670,61 +688,54 @@ class StoreWindow(Adw.ApplicationWindow):
     def on_install(self, entry, button):
         if entry["id"] in self.installing:
             return
-        command, env = install_command(entry["source"], entry["package"])
-        if command is None:
+        commands = install_commands(entry["source"], entry["package"])
+        if not commands:
             self.flash_status(f"{entry['title']} has no install path")
             return
         self.installing.add(entry["id"])
         button.set_label("Installing...")
         button.set_sensitive(False)
         worker = threading.Thread(
-            target=self.install_worker, args=(entry, button, command, env), daemon=True
+            target=self.install_worker,
+            args=(entry, button, commands, dict(os.environ)),
+            daemon=True,
         )
         worker.start()
 
-    def install_worker(self, entry, button, command, env):
-        self._install_entry = entry
-        self._install_button = button
-        self._install_rc = 1
-        self._install_line = ""
-        self._progress_line = ""
-
-        self.show_status(f"Installing {entry['title']}")
+    def install_worker(self, entry, button, commands, env):
+        returncode = 1
+        line = ""
+        GLib.timeout_add(0, self._set_progress, f"Installing {entry['title']}")
         try:
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                env=env,
-            )
-            while True:
-                line = process.stdout.readline()
-                if not line:
+            for command in commands:
+                process = subprocess.Popen(
+                    command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    env=env,
+                )
+                while True:
+                    text = process.stdout.readline() if process.stdout else ""
+                    if not text:
+                        break
+                    line = text.strip()
+                    if line:
+                        GLib.timeout_add(0, self._set_progress, line)
+                returncode = process.wait()
+                if returncode != 0:
                     break
-                self._progress_line = line.strip()
-                GLib.timeout_add(0, self._progress_tick)
-            returncode = process.wait()
-        except (OSError, subprocess.SubprocessError) as error:
+        except Exception as error:
             returncode = 1
-            self._progress_line = f"install failed: {error}"
+            line = "install failed: %s" % error
+        GLib.timeout_add(0, self._install_done, entry, button, returncode, line)
 
-        self._install_rc = returncode
-        self._install_line = self._progress_line
-        GLib.timeout_add(0, self._install_done)
-
-    def _progress_tick(self):
-        self.status_pill.set_text(self._progress_line or "Working")
-        self.status_pill.set_visible(True)
+    def _set_progress(self, line):
+        self.show_status(line or "Working")
         return False
 
-    def _install_done(self):
-        entry = self._install_entry
-        button = self._install_button
-        returncode = self._install_rc
-        line = self._install_line
-
+    def _install_done(self, entry, button, returncode, line):
         self.installing.discard(entry["id"])
         button.set_sensitive(True)
 
@@ -738,13 +749,13 @@ class StoreWindow(Adw.ApplicationWindow):
                 button.set_label("Install")
                 button.add_css_class("action")
             self.flash_status(f"Installed {entry['title']}")
-            self.toast(Adw.Toast.new(f"Installed {entry['title']}"))
+            self.toast(f"Installed {entry['title']}")
         else:
             button.set_label("Install")
             button.add_css_class("action")
             message = (line or "").strip() or f"Install of {entry['title']} failed"
             self.flash_status(message)
-            self.toast(Adw.Toast.new(f"Install failed for {entry['title']}"))
+            self.toast(f"Install failed for {entry['title']}")
         return False
 
     def is_installed(self, entry):
@@ -763,9 +774,9 @@ class StoreWindow(Adw.ApplicationWindow):
             return
         launched = launch_float(command, width=980, height=660)
         if launched:
-            self.toast(Adw.Toast.new(f"Launching {entry['title']}"))
+            self.toast(f"Launching {entry['title']}")
         else:
-            self.toast(Adw.Toast.new(f"Could not launch {entry['title']}"))
+            self.toast(f"Could not launch {entry['title']}")
 
 
 class StoreApp(Adw.Application):
