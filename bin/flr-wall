@@ -31,6 +31,19 @@ note() {
     printf '%s\n' "$*" >&2
 }
 
+# Confirm the applied wallpaper in a transient card, so running the picker
+# from a keybinding never changes the desktop without saying so.
+notify() {
+    local title=$1
+    local body=$2
+
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -a "FluorineOS" -u low -t 1600 -r 993 \
+            -h string:x-canonical-private-synchronous:flr-wall \
+            "${title}" "${body}" 2>/dev/null || true
+    fi
+}
+
 list_wallpapers() {
     local dir
 
@@ -144,6 +157,7 @@ apply_wall() {
     fi
 
     restart_background "${path}"
+    notify "Wallpaper" "${label}"
     printf 'Wallpaper: %s\n' "${label}"
 }
 
@@ -210,10 +224,22 @@ pick_wall() {
         die "no wallpapers found in ${system_dir} or ${user_dir}"
     fi
 
-    selection=$(printf '%s\n' "${wallpapers[@]##*/}" |
-        fuzzel --dmenu --prompt "Wallpaper > " --lines 8 --width 40) || exit 0
+    # Each row pairs the file name with what selecting it does, so the menu
+    # reads as an action list instead of a bare directory listing. The " | "
+    # separator is stripped again before the name is resolved.
+    rows=()
+    for wallpaper in "${wallpapers[@]##*/}"; do
+        rows+=("$(printf '%-26s | %s' "${wallpaper}" "Set as wallpaper")")
+    done
+
+    selection=$(printf '%s\n' "${rows[@]}" |
+        fuzzel --dmenu --prompt "Wallpaper > " --lines 8 --width 52) || exit 0
 
     [ -n "${selection}" ] || exit 0
+    # Cut the description column, then the padding spaces it leaves behind, so
+    # file names with their own spaces still resolve.
+    selection=${selection%% | *}
+    selection=${selection%"${selection##*[! ]}"}
     candidate=$(resolve_wall "${selection}") || exit 1
     apply_wall "${candidate}"
 }

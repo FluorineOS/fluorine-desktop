@@ -1,3 +1,27 @@
+fluorine-desktop (0.11.0) trixie; urgency=medium
+
+  * Add flr-osd, which changes the volume, microphone mute, backlight, and
+    Wi-Fi radio and then confirms the new state in a transient card. The media
+    and brightness keys now go through it, so no keypress is silent.
+  * Add missing click and scroll hints to every interactive Waybar module and
+    wire scroll on volume and the power profile. Hovering a module raises its
+    fill to #141920 and switches the 1.5px underline from #1c2229 to #b4f03a.
+  * Lay out the flr-ctl, flr-mode, and flr-wall Fuzzel menus as two columns with
+    a right-aligned shortcut or description, and widen the panels so the hints
+    are readable without truncation.
+  * Report wallpaper and shader changes in a notification as well as on stdout,
+    and give every state confirmation the same replacing notification id so
+    rapid presses update one card instead of stacking.
+  * Paint low-urgency notifications, which carry those confirmations, with the
+    lime accent edge instead of green.
+  * flr-settings now sets a pointer cursor on every control, draws a 1.5px lime
+    focus ring for keyboard navigation, adds press states, and dims controls
+    whose hardware is missing (Bluetooth adapter, audio sink) to 0.45 opacity
+    with an inline explanation. An inline pill in the header confirms each
+    change with the text applied to config.lua.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Wed, 25 Nov 2026 11:20:00 +0530
+
 fluorine-desktop (0.10.0) trixie; urgency=medium
 
   * Depend on the daily-driver utilities: Thunar with thunar-volman,

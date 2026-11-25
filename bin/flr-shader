@@ -31,6 +31,19 @@ note() {
     printf '%s\n' "$*" >&2
 }
 
+# Report the new shader in a transient card, so cycling from a keybinding is
+# never a silent visual change.
+notify() {
+    local title=$1
+    local body=$2
+
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -a "FluorineOS" -u low -t 1600 -r 994 \
+            -h string:x-canonical-private-synchronous:flr-shader \
+            "${title}" "${body}" 2>/dev/null || true
+    fi
+}
+
 label_for() {
     case "$1" in
         off) printf 'OFF' ;;
@@ -101,6 +114,7 @@ apply_shader() {
         die "hyprctl rejected the shader change"
     fi
 
+    notify "Display shader" "$(label_for "${name}")"
     printf 'Shader: %s\n' "$(label_for "${name}")"
 }
 

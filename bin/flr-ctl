@@ -3,6 +3,14 @@ set -euo pipefail
 
 readonly program="flr-ctl"
 readonly prompt="System > "
+# Two columns: the action on the left, its shortcut on the right. Fuzzel runs
+# in JetBrains Mono through fuzzel.ini, so padding to a fixed width lines the
+# hints up down the menu.
+readonly menu_width=36
+
+row() {
+    printf '%-*s%s' "${menu_width}" "$1" "$2"
+}
 
 usage() {
     printf 'Usage: %s\n\n' "${program}"
@@ -113,50 +121,50 @@ if profile_label="$(power_profile)"; then
 fi
 
 entries=(
-    "Settings"
-    "Network Settings"
-    "Bluetooth Devices"
-    "Display Layout"
-    "Audio Mixer"
-    "Display Shader"
-    "Wallpaper"
-    "${power_entry}"
-    "Keybinding Cheatsheet"
-    "System Diagnostics"
-    "System Monitor"
-    "Snapshots"
-    "Workstation Mode"
-    "Lock Session"
-    "Suspend"
-    "Reboot"
-    "Shut Down"
+    "$(row "Settings" "SUPER + ,")"
+    "$(row "Network Settings" "")"
+    "$(row "Bluetooth Devices" "")"
+    "$(row "Display Layout" "")"
+    "$(row "Audio Mixer" "")"
+    "$(row "Display Shader" "SUPER + SHIFT + N")"
+    "$(row "Wallpaper" "SUPER + W")"
+    "$(row "${power_entry}" "")"
+    "$(row "Keybinding Cheatsheet" "SUPER + /")"
+    "$(row "System Diagnostics" "")"
+    "$(row "System Monitor" "")"
+    "$(row "Snapshots" "")"
+    "$(row "Workstation Mode" "SUPER + M")"
+    "$(row "Lock Session" "SUPER + L")"
+    "$(row "Suspend" "")"
+    "$(row "Reboot" "")"
+    "$(row "Shut Down" "")"
 )
 
-selection="$(printf '%s\n' "${entries[@]}" | fuzzel --dmenu --prompt "${prompt}" --lines 15 --width 38)" || exit 0
+selection="$(printf '%s\n' "${entries[@]}" | fuzzel --dmenu --prompt "${prompt}" --lines 15 --width 48)" || exit 0
 
 case "${selection}" in
-    "Settings")
+    "Settings"*)
         exec flr-settings
         ;;
-    "Network Settings")
+    "Network Settings"*)
         if command -v flr-tui >/dev/null 2>&1; then
             launch_tui nmtui
         fi
         die "flr-tui is required to open nmtui"
         ;;
-    "Bluetooth Devices")
+    "Bluetooth Devices"*)
         exec flr-bt
         ;;
-    "Display Layout")
+    "Display Layout"*)
         launch_gui wdisplays
         ;;
-    "Audio Mixer")
+    "Audio Mixer"*)
         audio_menu
         ;;
-    "Display Shader")
+    "Display Shader"*)
         exec flr-shader
         ;;
-    "Wallpaper")
+    "Wallpaper"*)
         exec flr-wall
         ;;
     "Power Profile"*)
@@ -166,35 +174,35 @@ case "${selection}" in
         fi
         exit 0
         ;;
-    "Keybinding Cheatsheet")
+    "Keybinding Cheatsheet"*)
         exec flr-keys
         ;;
-    "System Diagnostics")
+    "System Diagnostics"*)
         launch_persistent_tui flr-doctor
         ;;
-    "System Monitor")
+    "System Monitor"*)
         if command -v btop >/dev/null 2>&1; then
             launch_monitor
         fi
 
         die "btop is required to open the system monitor"
         ;;
-    "Snapshots")
+    "Snapshots"*)
         launch_persistent_tui "flr-snapshot list"
         ;;
-    "Workstation Mode")
+    "Workstation Mode"*)
         exec flr-mode
         ;;
-    "Lock Session")
+    "Lock Session"*)
         exec hyprlock
         ;;
-    "Suspend")
+    "Suspend"*)
         exec systemctl suspend
         ;;
-    "Reboot")
+    "Reboot"*)
         exec systemctl reboot
         ;;
-    "Shut Down")
+    "Shut Down"*)
         exec systemctl poweroff
         ;;
     *)

@@ -140,7 +140,9 @@ notify_mode() {
     local label=$1
 
     if command -v notify-send >/dev/null 2>&1; then
-        notify-send -a "${program}" "Workstation mode" "${label}" 2>/dev/null || true
+        notify-send -a "FluorineOS" -u low -t 1600 -r 992 \
+            -h string:x-canonical-private-synchronous:flr-mode \
+            "Workstation mode" "${label}" 2>/dev/null || true
     fi
 }
 
@@ -189,10 +191,22 @@ pick_mode() {
         die "fuzzel is required to pick a profile; pass a profile name instead"
     fi
 
-    selection=$(printf '%s\n' "work" "focus" "present" |
-        fuzzel --dmenu --prompt "Mode > " --lines 3 --width 24) || exit 0
+    # Each row pairs the profile with the layout it applies, so the picker
+    # reads as three described choices instead of three bare words.
+    local -a rows=(
+        "$(printf '%-10s | %s' work 'Normal gaps, bar visible, idle lock on')"
+        "$(printf '%-10s | %s' focus 'No gaps, bar hidden, do not disturb')"
+        "$(printf '%-10s | %s' present 'Wide gaps, no idle lock, do not disturb')"
+    )
+
+    selection=$(printf '%s\n' "${rows[@]}" |
+        fuzzel --dmenu --prompt "Mode > " --lines 3 --width 52) || exit 0
 
     [ -n "${selection}" ] || exit 0
+    # The padded column leaves trailing spaces once the description is cut, so
+    # trim them before matching the profile name.
+    selection=${selection%% | *}
+    selection=${selection%"${selection##*[! ]}"}
     switch_to "${selection}"
 }
 

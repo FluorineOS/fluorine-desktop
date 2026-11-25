@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-osd"
+readonly app_name="FluorineOS"
+# One notification id for every OSD message, so quick repeated presses replace
+# the previous card instead of stacking a column of them.
+readonly note_id=991
+
+usage() {
+    printf 'Usage: %s <action> [direction]\n\n' "${program}"
+    printf 'Change a hardware control and confirm the new state in a transient\n'
+    printf 'SwayNotificationCenter card.\n\n'
+    printf 'Actions:\n'
+    printf '  volume up|down   Raise or lower the default sink by five percent.\n'
+    printf '  mute             Toggle mute on the default sink.\n'
+    printf '  mic              Toggle mute on the default source.\n'
+    printf '  brightness up|down\n'
+    printf '                   Raise or lower the backlight by five percent.\n'
+    printf '  wifi             Toggle the Wi-Fi radio.\n'
+}
+
+die() {
+    printf '%s: %s\n' "${program}" "$*" >&2
+    exit 1
+}
+
+send() {
+    local title=$1
+    local body=$2
+
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -a "${app_name}" -u low -t 1600 -r "${note_id}" \
+            -h string:x-canonical-private-synchronous:flr-osd \
+            "${title}" "${body}" 2>/dev/null || true
+    fi
+}
+
+sink_state() {
+    local text volume muted=no
+
+    command -v wpctl >/dev/null 2>&1 || die "wpctl is required but was not found"
+    text=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null || true)
+    [ -n "${text}" ] || die "PipeWire reports no default sink"
+
+    case "${text}" in
+        *MUTED*) muted=yes ;;
+    esac
+
+    volume=$(printf '%s\n' "${text}" | awk '{printf "%d", $2 * 100}')
+
+    if [ "${muted}" = yes ]; then
+        send "Volume" "Muted"
+    else
+        send "Volume" "${volume}%"
+    fi
+}
+
+source_state() {
+    local text muted=no
+
+    command -v wpctl >/dev/null 2>&1 || die "wpctl is required but was not found"
+    text=$(wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null || true)
+    [ -n "${text}" ] || die "PipeWire reports no default source"
+
+    case "${text}" in
+        *MUTED*) muted=yes ;;
+    esac
+
+    if [ "${muted}" = yes ]; then
+        send "Microphone" "Muted"
+    else
+        send "Microphone" "Live"
+    fi
+}
+
+volume() {
+    case "${1:-}" in
+        up) wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+ ;;
+        down) wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- ;;
+        *) die "volume needs up or down" ;;
+    esac
+
+    sink_state
+}
+
+mute() {
+    wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+    sink_state
+}
+
+mic() {
+    wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+    source_state
+}
+
+brightness() {
+    local percent
+
+    command -v brightnessctl >/dev/null 2>&1 ||
+        die "brightnessctl is required but was not found"
+
+    case "${1:-}" in
+        up) brightnessctl -q set 5%+ 2>/dev/null || die "no backlight device" ;;
+        down) brightnessctl -q set 5%- 2>/dev/null || die "no backlight device" ;;
+        *) die "brightness needs up or down" ;;
+    esac
+
+    percent=$(brightnessctl -m 2>/dev/null | cut -d, -f4)
+    send "Brightness" "${percent:-changed}"
+}
+
+wifi() {
+    local state
+
+    command -v nmcli >/dev/null 2>&1 || die "nmcli is required but was not found"
+
+    nmcli radio wifi toggle >/dev/null 2>&1 || die "could not toggle the Wi-Fi radio"
+    state=$(nmcli radio wifi 2>/dev/null || printf 'unknown')
+
+    case "${state}" in
+        enabled) send "Wi-Fi" "On" ;;
+        disabled) send "Wi-Fi" "Off" ;;
+        *) send "Wi-Fi" "${state}" ;;
+    esac
+}
+
+main() {
+    case "${1:-}" in
+        volume) volume "${2:-}" ;;
+        mute) mute ;;
+        mic) mic ;;
+        brightness) brightness "${2:-}" ;;
+        wifi) wifi ;;
+        -h | --help)
+            usage
+            ;;
+        *)
+            usage >&2
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"

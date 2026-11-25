@@ -20,6 +20,7 @@
         "on-click": "activate",
         "all-outputs": true,
         "active-only": false,
+        "tooltip": false,
         "persistent-workspaces": {
             "*": 5
         }
@@ -34,7 +35,11 @@
     "pulseaudio": {
         "format": "VOL {volume}%",
         "format-muted": "MUTE",
-        "on-click": "pavucontrol"
+        "tooltip-format": "Default sink volume {volume}%\nLeft-click: Audio mixer | Middle-click: Mute | Scroll: Adjust volume",
+        "on-click": "pavucontrol",
+        "on-click-middle": "flr-osd mute",
+        "on-scroll-up": "flr-osd volume up",
+        "on-scroll-down": "flr-osd volume down"
     },
 
     "network": {
@@ -42,18 +47,21 @@
         "format-ethernet": "ETH {ifname}",
         "format-linked": "ETH {ifname}",
         "format-disconnected": "OFFLINE",
-        "tooltip-format": "{ifname} via {gwaddr}",
-        "tooltip-format-wifi": "{essid} {signaldBm} dBm\n{ipaddr}",
-        "tooltip-format-ethernet": "{ifname}\n{ipaddr}",
-        "on-click": "flr-tui nmtui"
+        "tooltip-format": "{ifname} via {gwaddr}\nLeft-click: Network settings | Right-click: Toggle Wi-Fi",
+        "tooltip-format-wifi": "{essid} {signaldBm} dBm\n{ipaddr}\nLeft-click: Network settings | Right-click: Toggle Wi-Fi",
+        "tooltip-format-ethernet": "{ifname}\n{ipaddr}\nLeft-click: Network settings | Right-click: Toggle Wi-Fi",
+        "tooltip-format-disconnected": "No active connection\nLeft-click: Network settings | Right-click: Toggle Wi-Fi",
+        "on-click": "flr-tui nmtui",
+        "on-click-right": "flr-osd wifi"
     },
 
     "bluetooth": {
         "format": "BT {status}",
         "format-disabled": "BT OFF",
         "format-connected": "BT {num_connections}",
-        "tooltip-format": "{controller_alias} {controller_address}",
-        "tooltip-format-connected": "{controller_alias} {controller_address}\n{device_enumerate}",
+        "tooltip-format": "{controller_alias} {controller_address}\nLeft-click: Bluetooth manager | Right-click: bluetoothctl",
+        "tooltip-format-connected": "{controller_alias} {controller_address}\n{device_enumerate}\nLeft-click: Bluetooth manager | Right-click: bluetoothctl",
+        "tooltip-format-disabled": "Bluetooth is off\nLeft-click: Bluetooth manager",
         "on-click": "flr-bt",
         "on-click-right": "flr-tui bluetoothctl"
     },
@@ -62,13 +70,13 @@
         "exec": "flr-mode status",
         "interval": 0,
         "signal": 10,
-        "tooltip": "Workstation mode (SUPER + M)",
+        "tooltip": "Workstation profile: WORK, FOCUS, or PRESENT\nLeft-click: Open the profile picker (SUPER + M)",
         "on-click": "flr-mode"
     },
 
     "custom/system": {
         "format": "SYS",
-        "tooltip": "System menu (SUPER + Escape)",
+        "tooltip": "System menu\nLeft-click: Open the menu (SUPER + Escape) | Right-click: Check for updates",
         "on-click": "flr-ctl",
         "on-click-right": "flr-tui flr-update"
     },
@@ -77,13 +85,16 @@
         "exec": "flr-power waybar",
         "return-type": "json",
         "interval": 10,
-        "on-click": "flr-power cycle"
+        "on-click": "flr-power cycle",
+        "on-scroll-up": "flr-power cycle",
+        "on-scroll-down": "flr-power cycle"
     },
 
     "battery": {
         "format": "BAT {capacity}%",
         "format-charging": "BAT {capacity}% CHG",
         "format-plugged": "BAT {capacity}% AC",
+        "tooltip-format": "{timeTo} remaining\nPower profile is on the PWR module",
         "states": {
             "warning": 20,
             "critical": 10
@@ -92,6 +103,7 @@
 
     "clock": {
         "format": "{:%Y-%m-%d %H:%M}",
-        "tooltip-format": "{calendar}"
+        "tooltip-format": "{calendar}\nLeft-click: System menu",
+        "on-click": "flr-ctl"
     }
 }

@@ -39,8 +39,14 @@
 
 /* Severity edges: success, warning, error. The matching title keeps the state
    readable without relying on the color. */
+/* Low-urgency cards are the transient state confirmations from flr-osd,
+   flr-mode, flr-wall, and flr-shader, so they carry the lime accent. */
 .notification.low {
-    border-left-color: #3fb950;
+    border-left-color: #b4f03a;
+}
+
+.notification.low .text-title {
+    color: #b4f03a;
 }
 
 .notification.normal {

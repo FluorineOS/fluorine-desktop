@@ -255,6 +255,61 @@ scale > trough > slider {
     color: #b4f03a;
 }
 
+/* Interactive surfaces: a keyboard focus ring and a press state. The pointer
+   cursor is set per widget in code because GTK 4 has no CSS cursor property.
+   The ring is drawn outside the border so the resting 1.5px hairline geometry
+   never moves between states. */
+button:focus-visible,
+dropdown > button:focus-visible,
+switch:focus-visible,
+scale:focus-visible,
+.nav-list row:focus-visible,
+.wall-button:focus-visible {
+    outline: 1.5px solid #b4f03a;
+    outline-offset: 1px;
+}
+
+button:active,
+dropdown > button:active,
+.nav-list row:active,
+.wall-button:active {
+    background: #141920;
+    border-color: #b4f03a;
+}
+
+button.action:active {
+    background: #9fd02f;
+    border-color: #9fd02f;
+    color: #000000;
+}
+
+button.mode:checked:active {
+    background: #9fd02f;
+    border-color: #9fd02f;
+    color: #000000;
+}
+
+/* Unavailable hardware: the control stays in place, dimmed, so the section
+   still shows what it would do on a machine that has the device. */
+button:disabled,
+dropdown > button:disabled,
+switch:disabled,
+scale:disabled,
+.nav-list row:disabled,
+.wall-button:disabled {
+    opacity: 0.45;
+}
+
+.status-pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #b4f03a;
+    background: #0a0d10;
+    border: 1.5px solid #b4f03a;
+    padding: 3px 8px;
+    margin: 0 6px;
+}
+
 textview {
     background: #000000;
     color: #e2e8f0;
@@ -394,6 +449,26 @@ def hyprland_running():
     return bool(os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")) and available("hyprctl")
 
 
+def bluetooth_present():
+    """True when the kernel exposes at least one Bluetooth adapter."""
+    try:
+        return bool(os.listdir("/sys/class/bluetooth"))
+    except OSError:
+        return False
+
+
+def audio_sink_present():
+    """True when PipeWire reports a default sink to control."""
+    if not available("wpctl"):
+        return False
+    result = run(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"], timeout=4)
+    return (
+        result is not None
+        and result.returncode == 0
+        and bool(result.stdout.strip())
+    )
+
+
 def monitors():
     if not hyprland_running():
         return []
@@ -451,6 +526,13 @@ class SettingsWindow(Adw.ApplicationWindow):
         )
         self.toolbar.add_top_bar(header)
 
+        # Inline confirmation pill: every successful change flashes here for a
+        # moment so the action reports itself without a modal or a toast queue.
+        self.status_pill = Gtk.Label(label="")
+        self.status_pill.add_css_class("status-pill")
+        self.status_pill.set_visible(False)
+        header.pack_end(self.status_pill)
+
         self.split = Adw.NavigationSplitView()
         self.split.set_min_sidebar_width(210)
         self.split.set_max_sidebar_width(264)
@@ -476,6 +558,19 @@ class SettingsWindow(Adw.ApplicationWindow):
 
     def toast(self, message):
         self.toast_overlay.add_toast(Adw.Toast.new(message))
+
+    def flash_status(self, message, milliseconds=1800):
+        """Show the inline confirmation pill for a moment, replacing the last."""
+        self.status_pill.set_text(message)
+        self.status_pill.set_visible(True)
+        if getattr(self, "_status_timeout", None):
+            GLib.source_remove(self._status_timeout)
+        self._status_timeout = GLib.timeout_add(milliseconds, self._hide_status)
+
+    def _hide_status(self):
+        self._status_timeout = None
+        self.status_pill.set_visible(False)
+        return False
 
     def page(self, name):
         scroll = Gtk.ScrolledWindow()
@@ -531,6 +626,7 @@ class SettingsWindow(Adw.ApplicationWindow):
 
     def switch(self, active, callback):
         widget = Gtk.Switch(active=active, valign=Gtk.Align.CENTER)
+        widget.set_cursor_from_name("pointer")
         widget.connect(
             "notify::active",
             lambda control, _pspec: None if self.updating else callback(control.get_active()),
@@ -540,6 +636,7 @@ class SettingsWindow(Adw.ApplicationWindow):
     def dropdown(self, options, selected, callback):
         widget = Gtk.DropDown.new_from_strings(list(options))
         widget.set_valign(Gtk.Align.CENTER)
+        widget.set_cursor_from_name("pointer")
         if selected in options:
             widget.set_selected(list(options).index(selected))
         widget.connect(
@@ -556,6 +653,7 @@ class SettingsWindow(Adw.ApplicationWindow):
         widget.set_hexpand(True)
         widget.set_size_request(180, -1)
         widget.set_draw_value(False)
+        widget.set_cursor_from_name("pointer")
         widget.connect(
             "value-changed",
             lambda control: None if self.updating else callback(control.get_value()),
@@ -565,14 +663,17 @@ class SettingsWindow(Adw.ApplicationWindow):
     def action_row(self, parent, buttons):
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         box.add_css_class("row")
+        created = []
         for label, handler, primary in buttons:
             button = Gtk.Button(label=label)
             if primary:
                 button.add_css_class("action")
+            button.set_cursor_from_name("pointer")
             button.connect("clicked", lambda _button, fn=handler: fn())
             box.append(button)
+            created.append(button)
         parent.append(box)
-        return box
+        return created
 
     def guarded(self, refresh):
         """Run a refresh without echoing its writes back into the system."""
@@ -612,6 +713,8 @@ class SettingsWindow(Adw.ApplicationWindow):
             box.append(image)
             box.append(label)
             row.set_child(box)
+            row.set_cursor_from_name("pointer")
+            row.set_tooltip_text(f"Show the {title} section")
             self.nav.append(row)
 
         self.nav.connect("row-selected", self.on_section_selected)
@@ -662,7 +765,8 @@ class SettingsWindow(Adw.ApplicationWindow):
         for path in wallpaper_files():
             button = Gtk.Button()
             button.add_css_class("wall-button")
-            button.set_tooltip_text(str(path))
+            button.set_cursor_from_name("pointer")
+            button.set_tooltip_text(f"Set {path.name} as the wallpaper and lock screen")
             inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
             try:
                 # Thumbnails are scaled down first: a 4K paintable would report
@@ -781,6 +885,7 @@ class SettingsWindow(Adw.ApplicationWindow):
         self.mark_selected_wallpaper(path)
         self.wall_value.set_text(path.name)
         self.toast(f"Wallpaper set to {path.name}")
+        self.flash_status("Wallpaper applied")
 
     def apply_shader(self, name):
         result = run(["flr-shader", name])
@@ -788,6 +893,7 @@ class SettingsWindow(Adw.ApplicationWindow):
             self.toast("flr-shader is not available")
             return
         self.toast(f"Shader set to {name}")
+        self.flash_status(f"Shader: {name.upper()}")
 
     def on_gap_changed(self, value):
         pixels = int(round(value))
@@ -800,6 +906,7 @@ class SettingsWindow(Adw.ApplicationWindow):
         self._gap_timeout = None
         run(["flr-config", "set", "gaps_in", str(pixels)])
         run(["flr-config", "set", "gaps_out", str(pixels)])
+        self.flash_status("Applied to config.lua")
         return False
 
     def apply_border(self, label):
@@ -809,6 +916,7 @@ class SettingsWindow(Adw.ApplicationWindow):
             self.toast("flr-config is not available")
             return
         self.toast(f"Border width set to {label}")
+        self.flash_status("Applied to config.lua")
 
     def build_workstation(self):
         page = self.page("workstation")
@@ -828,6 +936,8 @@ class SettingsWindow(Adw.ApplicationWindow):
         for name in MODES:
             button = Gtk.ToggleButton(label=name.capitalize())
             button.add_css_class("mode")
+            button.set_cursor_from_name("pointer")
+            button.set_tooltip_text(f"Switch the workstation to the {name} profile")
             if anchor is None:
                 anchor = button
             else:
@@ -881,6 +991,7 @@ class SettingsWindow(Adw.ApplicationWindow):
         for candidate, button in self.mode_buttons.items():
             button.set_active(candidate == name)
         self.toast(f"Mode set to {name}")
+        self.flash_status(f"Mode: {name.upper()}")
 
     def apply_idle(self, label):
         seconds = IDLE_SECONDS[IDLE_LABELS.index(label)]
@@ -892,6 +1003,7 @@ class SettingsWindow(Adw.ApplicationWindow):
             self.toast("Idle locking disabled")
         else:
             self.toast(f"Idle lock after {label}")
+        self.flash_status("Applied to config.lua")
 
     def cheatsheet_enabled(self):
         return not ONBOARD_MARKER.exists()
@@ -1013,9 +1125,22 @@ class SettingsWindow(Adw.ApplicationWindow):
         bluetooth_panel = self.panel(page, "Bluetooth", "Read from bluetoothctl.")
         self.bluetooth_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         bluetooth_panel.append(self.bluetooth_box)
-        self.action_row(
+        bluetooth_buttons = self.action_row(
             bluetooth_panel, [("Open Bluetooth Manager", self.open_bluetooth, True)]
         )
+        if not bluetooth_present():
+            for button in bluetooth_buttons:
+                button.set_sensitive(False)
+                button.set_tooltip_text(
+                    "No Bluetooth adapter is present on this machine"
+                )
+            note = Gtk.Label(
+                label="No Bluetooth adapter was found, so the manager is disabled.",
+                xalign=0,
+                wrap=True,
+            )
+            note.add_css_class("row-sub")
+            bluetooth_panel.append(note)
 
         power_panel = self.panel(
             page, "Power profile", "Applied through power-profiles-daemon."
@@ -1145,12 +1270,24 @@ class SettingsWindow(Adw.ApplicationWindow):
         self.input_mute = self.switch(False, self.on_input_mute)
         mute_in_row.append(self.input_mute)
 
-        if not available("wpctl"):
-            label = Gtk.Label(
-                label="wpctl was not found; install wireplumber.", xalign=0
+        if not audio_sink_present():
+            for control in (
+                self.output_scale,
+                self.output_mute,
+                self.input_scale,
+                self.input_mute,
+            ):
+                control.set_sensitive(False)
+                control.set_tooltip_text("No audio device is available")
+            reason = (
+                "wpctl was not found; install wireplumber."
+                if not available("wpctl")
+                else "No audio device is available, so volume and mute are disabled."
             )
-            label.add_css_class("row-sub")
-            output_panel.append(label)
+            for frame in (output_panel, input_panel):
+                label = Gtk.Label(label=reason, xalign=0, wrap=True)
+                label.add_css_class("row-sub")
+                frame.append(label)
 
         self.refreshers["audio"] = self.refresh_audio
         self.refresh_audio()

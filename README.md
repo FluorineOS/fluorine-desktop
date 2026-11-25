@@ -26,6 +26,7 @@
 | `/etc/skel/.config/kanshi/config` | Display profiles applied on output hotplug |
 | `/usr/share/fluorineos/shaders/night.glsl` | Warm low-blue-light display shader |
 | `/usr/share/fluorineos/shaders/mono.glsl` | Grayscale focus-mode display shader |
+| `/usr/bin/flr-osd` | Transient confirmation for volume, mic, backlight, and Wi-Fi changes |
 | `/usr/bin/flr-settings` | Native GTK4 and libadwaita settings panel |
 | `/usr/bin/flr-config` | Apply the geometry and idle state in `~/.config/fluorine/config.lua` |
 | `/etc/skel/.config/fluorine/config.lua` | Editable gaps, border width, and idle lock timeout |
@@ -104,6 +105,18 @@ same floating terminal.
 `flr-power` reads `powerprofilesctl` and degrades cleanly on hardware without an ACPI
 platform profile driver: the module shows `PWR N/A` and a click reports that profiles are
 unavailable instead of failing.
+
+Every clickable Waybar module carries a tooltip that names both its click and scroll
+actions, for example `Left-click: Network settings | Right-click: Toggle Wi-Fi`. Hovering
+raises the module fill from the bar surface to `#141920` and switches its 1.5px underline
+from the hairline `#1c2229` to the lime accent, so the pointer target is unambiguous
+before the click lands. Volume and power also respond to the scroll wheel.
+
+State-changing actions never run silently. `flr-osd` applies a volume, microphone,
+backlight, or Wi-Fi change and then posts a transient `swaync` card with the new value;
+`flr-mode`, `flr-wall`, and `flr-shader` report their result the same way. All of them
+share one replacing notification id per tool, so holding a volume key updates a single
+card instead of stacking a column.
 
 `flr-ctl` collects the hardware and session actions in one Fuzzel menu: network settings
 through `nmtui`, the Bluetooth manager, `wdisplays`, the audio mixer, power profile cycling,

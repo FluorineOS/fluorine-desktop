@@ -26,9 +26,9 @@ window#waybar {
 }
 
 #workspaces button:hover {
-    background: #0a0d10;
+    background: #141920;
     color: #e2e8f0;
-    border-bottom-color: #1c2229;
+    border-bottom-color: #b4f03a;
 }
 
 /* Lime is a focus signal, never a fill: the active workspace is lime text over
@@ -52,11 +52,34 @@ window#waybar {
     color: #6e7681;
 }
 
+/* Every module is a clickable slot: the resting hairline is the bar's own
+   1.5px rule, and hover raises the fill to #141920 and lights the underline
+   lime, so the pointer always knows which control is armed. */
 #pulseaudio,
 #network,
 #battery,
-#clock {
+#clock,
+#bluetooth,
+#custom-power,
+#custom-mode,
+#custom-system {
     padding: 0 8px;
+    background: transparent;
+    color: #e2e8f0;
+    border-bottom: 1.5px solid #1c2229;
+    transition: background 120ms linear, border-color 120ms linear, color 120ms linear;
+}
+
+#pulseaudio:hover,
+#network:hover,
+#battery:hover,
+#clock:hover,
+#bluetooth:hover,
+#custom-power:hover,
+#custom-mode:hover,
+#custom-system:hover {
+    background: #141920;
+    border-bottom-color: #b4f03a;
     color: #e2e8f0;
 }
 
@@ -68,13 +91,6 @@ window#waybar {
     color: #f85149;
 }
 
-#bluetooth,
-#custom-power,
-#custom-mode,
-#custom-system {
-    padding: 0 8px;
-    color: #e2e8f0;
-}
 
 /* The mode badge stays muted so it never competes with the accent, which is
    reserved for focus and active states. */

@@ -282,21 +282,21 @@ hl.bind(mainMod .. " + L", hl.dsp.exec_cmd("hyprlock"))
 -- Clipboard history: pick a stored entry, decode it, and put it back on the
 -- clipboard so SUPER + V pastes it.
 hl.bind(mainMod .. " + C", hl.dsp.exec_cmd(
-    "sh -c 'cliphist list | fuzzel --dmenu --prompt=Clip: | cliphist decode | wl-copy'"))
+    "sh -c 'cliphist list | fuzzel --dmenu --lines 12 --width 48 --prompt=\"Clip > \" | cliphist decode | wl-copy'"))
 
--- Hardware media keys. wpctl addresses the default sink and source, so the
--- bindings follow the active output and microphone.
-hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+"))
-hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"))
-hl.bind("XF86AudioMute",        hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"))
-hl.bind("XF86AudioMicMute",     hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"))
+-- Hardware media keys go through flr-osd, which changes the value and then
+-- reports the new state in a transient card, so no keypress is silent.
+hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("flr-osd volume up"))
+hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("flr-osd volume down"))
+hl.bind("XF86AudioMute",        hl.dsp.exec_cmd("flr-osd mute"))
+hl.bind("XF86AudioMicMute",     hl.dsp.exec_cmd("flr-osd mic"))
 
 -- Brightness keys. Virtual machines and desktops without a backlight have no
 -- brightness device, so both bindings discard the error and change nothing.
 hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd(
-    "sh -c 'brightnessctl -q set 5%+ 2>/dev/null || true'"))
+    "sh -c 'flr-osd brightness up 2>/dev/null || true'"))
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(
-    "sh -c 'brightnessctl -q set 5%- 2>/dev/null || true'"))
+    "sh -c 'flr-osd brightness down 2>/dev/null || true'"))
 
 -- FluorineOS utilities
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd("flr-shot"))
