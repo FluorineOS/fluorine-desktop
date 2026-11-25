@@ -124,6 +124,7 @@ if profile_label="$(power_profile)"; then
 fi
 
 entries=(
+    "Application Hub|SUPER + S|flr-ctl"
     "Settings|SUPER + ,|flr-settings"
     "Network Settings||flr-network"
     "Bluetooth Devices||flr-bluetooth"
@@ -152,9 +153,12 @@ menu() {
     done
 }
 
-selection="$(menu | fuzzel --dmenu --prompt "${prompt}" --lines 15 --width 48)" || exit 0
+selection="$(menu | fuzzel --dmenu --prompt "${prompt}" --lines 18 --width 48)" || exit 0
 
 case "${selection}" in
+    "Application Hub"*)
+        exec flr-store
+        ;;
     "Settings"*)
         exec flr-settings
         ;;

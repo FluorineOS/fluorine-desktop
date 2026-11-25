@@ -268,6 +268,8 @@ end)
 hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd("kitty"))
 hl.bind(mainMod .. " + D",      hl.dsp.exec_cmd("fuzzel"))
 hl.bind(mainMod .. " + E",      hl.dsp.exec_cmd("thunar"))
+-- Curated application hub: developer tools, browsers, and media software.
+hl.bind(mainMod .. " + S",      hl.dsp.exec_cmd("flr-store"))
 
 -- Window management
 hl.bind(mainMod .. " + Q", hl.dsp.window.close())

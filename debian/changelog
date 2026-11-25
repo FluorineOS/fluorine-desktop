@@ -1,3 +1,16 @@
+fluorine-desktop (0.14.0) trixie; urgency=medium
+
+  * Add the flr-store curated application hub. The GTK4 and libadwaita
+    interface groups verified developer tools, browsers, and media software
+    into Development, Web, Multimedia, and System Utilities categories, and
+    installs them through apt, Flatpak, or a flr-box container.
+  * Run installs on worker threads and report progress through the inline
+    status pill and toasts.
+  * Open the hub with SUPER + S and add an Application Hub entry to the
+    flr-ctl Fuzzel menu.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Wed, 25 Nov 2026 17:20:00 +0530
+
 fluorine-desktop (0.13.0) trixie; urgency=medium
 
   * Add the Fluorine geometric SVG icon set to Waybar, Fuzzel, the settings

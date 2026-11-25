@@ -1,0 +1,797 @@
+#!/usr/bin/env python3
+"""FluorineOS Store.
+
+A curated application hub for the FluorineOS desktop. The hub groups verified
+developer tools, browsers, and media software into curated categories and
+installs them through apt, Flatpak, or a flr-box Distrobox container. Installs
+run on worker threads and report progress through the inline status pill and
+toasts, so the interface stays responsive while package work runs.
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+import threading
+from pathlib import Path
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+gi.require_version("GdkPixbuf", "2.0")
+
+from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk
+
+APP_ID = "org.fluorineos.Store"
+
+CSS = """
+window {
+    background-color: #000000;
+    color: #e2e8f0;
+    font-family: "Space Grotesk", "Inter", sans-serif;
+    font-size: 13px;
+}
+
+headerbar {
+    background: #0a0d10;
+    border-bottom: 1.5px solid #1c2229;
+    box-shadow: none;
+    min-height: 46px;
+}
+
+headerbar windowtitle {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: #e2e8f0;
+}
+
+.nav-pane {
+    background: #0a0d10;
+    border-right: 1.5px solid #1c2229;
+}
+
+.nav-list {
+    background: transparent;
+    margin: 8px;
+}
+
+.nav-list row {
+    background: transparent;
+    border: 1.5px solid transparent;
+    border-radius: 0;
+    padding: 7px 9px;
+    color: #6e7681;
+}
+
+.nav-list row:hover {
+    border-color: #1c2229;
+    color: #e2e8f0;
+}
+
+.nav-list row:selected {
+    background: #b4f03a;
+    border-color: #b4f03a;
+}
+
+.nav-list row:selected label,
+.nav-list row:selected image {
+    color: #000000;
+}
+
+.content-pane {
+    background: #000000;
+}
+
+.panel {
+    background: #0a0d10;
+    border: 1.5px solid #1c2229;
+    padding: 12px 14px;
+}
+
+.panel-title {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #6e7681;
+}
+
+.panel-note {
+    font-size: 11px;
+    color: #6e7681;
+}
+
+.row {
+    padding: 7px 0;
+}
+
+.row-title {
+    font-size: 13px;
+    color: #e2e8f0;
+}
+
+.row-sub {
+    font-size: 11px;
+    color: #6e7681;
+}
+
+.value {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #b4f03a;
+}
+
+button {
+    background: #0a0d10;
+    border: 1.5px solid #1c2229;
+    border-radius: 0;
+    padding: 6px 11px;
+    color: #e2e8f0;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+button:hover {
+    border-color: #b4f03a;
+    color: #b4f03a;
+}
+
+button.action {
+    background: #b4f03a;
+    border-color: #b4f03a;
+    color: #000000;
+}
+
+button.action:hover {
+    background: #c6f75e;
+    border-color: #c6f75e;
+    color: #000000;
+}
+
+button:disabled {
+    opacity: 0.45;
+}
+
+.status-pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #b4f03a;
+    background: #0a0d10;
+    border: 1.5px solid #b4f03a;
+    padding: 3px 8px;
+    margin: 0 6px;
+}
+
+button:focus-visible,
+.nav-list row:focus-visible {
+    outline: 1.5px solid #b4f03a;
+    outline-offset: 1px;
+}
+
+button:active,
+.nav-list row:active {
+    background: #141920;
+    border-color: #b4f03a;
+}
+"""
+
+CATEGORIES = (
+    {
+        "id": "development",
+        "title": "Development",
+        "icon": "flr-ctl",
+        "note": "Verified developer tools from Debian 13 and the flr-box container.",
+        "entries": (
+            {
+                "id": "git",
+                "title": "Git",
+                "summary": "Version control with terminal and merge workflows.",
+                "source": "apt",
+                "package": "git",
+                "command": "git",
+            },
+            {
+                "id": "neovim",
+                "title": "Neovim",
+                "summary": "Modal editor with Lua configuration.",
+                "source": "apt",
+                "package": "neovim",
+                "command": "neovim",
+            },
+            {
+                "id": "golang",
+                "title": "Go",
+                "summary": "Go compiler and toolchain.",
+                "source": "apt",
+                "package": "golang",
+                "command": "go",
+            },
+            {
+                "id": "rustc",
+                "title": "Rust",
+                "summary": "Rust compiler and Cargo package manager.",
+                "source": "apt",
+                "package": "rustc",
+                "command": "rustc",
+            },
+            {
+                "id": "python3",
+                "title": "Python",
+                "summary": "Python runtime and packaging tooling.",
+                "source": "apt",
+                "package": "python3",
+                "command": "python3",
+            },
+            {
+                "id": "nodejs",
+                "title": "Node",
+                "summary": "JavaScript runtime and npm package management.",
+                "source": "apt",
+                "package": "nodejs",
+                "command": "node",
+            },
+            {
+                "id": "devbox",
+                "title": "Devbox",
+                "summary": "Isolated Debian container for build toolchains.",
+                "source": "flr-box",
+                "package": "debian",
+                "command": "flr-box enter fluorine-debian",
+            },
+        ),
+    },
+    {
+        "id": "web",
+        "title": "Web",
+        "icon": "browser",
+        "note": "Curated browsers packaged for Debian 13.",
+        "entries": (
+            {
+                "id": "firefox-esr",
+                "title": "Firefox ESR",
+                "summary": "Reference browser with a dark AMOLED-friendly default.",
+                "source": "apt",
+                "package": "firefox-esr",
+                "command": "firefox-esr",
+                "icon": "browser",
+            },
+            {
+                "id": "epiphany",
+                "title": "Epiphany",
+                "summary": "Lightweight web engine for reading and research.",
+                "source": "apt",
+                "package": "epiphany",
+                "command": "epiphany",
+                "icon": "browser",
+            },
+        ),
+    },
+    {
+        "id": "multimedia",
+        "title": "Multimedia",
+        "icon": "flr-audio",
+        "note": "Curated media players and editors from Debian 13 and Flathub.",
+        "entries": (
+            {
+                "id": "vlc",
+                "title": "VLC",
+                "summary": "Video player with broad codec support.",
+                "source": "apt",
+                "package": "vlc",
+                "command": "vlc",
+                "icon": "flr-audio",
+            },
+            {
+                "id": "mpv",
+                "title": "MPV",
+                "summary": "Minimal media player for keyboard-driven playback.",
+                "source": "apt",
+                "package": "mpv",
+                "command": "mpv",
+                "icon": "flr-audio",
+            },
+            {
+                "id": "kdenlive",
+                "title": "Kdenlive",
+                "summary": "Non-linear video editor.",
+                "source": "apt",
+                "package": "kdenlive",
+                "command": "kdenlive",
+                "icon": "flr-audio",
+            },
+            {
+                "id": "spotify",
+                "title": "Spotify",
+                "summary": "Music streaming client from Flathub.",
+                "source": "flatpak",
+                "package": "com.spotify.Client",
+                "command": "flatpak run com.spotify.Client",
+                "icon": "flr-audio",
+            },
+        ),
+    },
+    {
+        "id": "system",
+        "title": "System Utilities",
+        "icon": "flr-doctor",
+        "note": "Small system tools for inspection and scripting.",
+        "entries": (
+            {
+                "id": "htop",
+                "title": "htop",
+                "summary": "Interactive process viewer.",
+                "source": "apt",
+                "package": "htop",
+                "command": None,
+                "icon": "flr-doctor",
+            },
+            {
+                "id": "iotop",
+                "title": "IoTop",
+                "summary": "Per-interface process traffic viewer.",
+                "source": "apt",
+                "package": "iotop",
+                "command": None,
+                "icon": "flr-doctor",
+            },
+            {
+                "id": "tree",
+                "title": "Tree",
+                "summary": "Filesystem tree printer for shallow reviews.",
+                "source": "apt",
+                "package": "tree",
+                "command": None,
+                "icon": "flr-doctor",
+            },
+            {
+                "id": "jq",
+                "title": "jq",
+                "summary": "JSON processor for shell pipelines and scripts.",
+                "source": "apt",
+                "package": "jq",
+                "command": None,
+                "icon": "flr-doctor",
+            },
+        ),
+    },
+)
+
+
+def run(command, timeout=5):
+    """Run a command and return the completed process, or None."""
+    try:
+        return subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def output(command, timeout=5):
+    result = run(command, timeout)
+    if result is None:
+        return ""
+    return (result.stdout or "").strip()
+
+
+def available(program):
+    return shutil.which(program) is not None
+
+
+def os_release(field):
+    try:
+        text = Path("/etc/os-release").read_text(encoding="utf-8")
+    except OSError:
+        return "unknown"
+    for line in text.splitlines():
+        if line.startswith(field + "="):
+            return line.split("=", 1)[1].strip().strip('"')
+    return "unknown"
+
+
+def hyprland_running():
+    return bool(os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")) and available("hyprctl")
+
+
+def launch_float(command, width=980, height=660):
+    """Open a tool as a floating, centred window when Hyprland is running."""
+    if hyprland_running():
+        rule = f"[float;size {width} {height};center] {command}"
+        return run(["hyprctl", "dispatch", "exec", rule], timeout=8) is not None
+    try:
+        subprocess.Popen(command.split(), start_new_session=True)
+        return True
+    except OSError:
+        return False
+
+
+def install_command(source, package):
+    """Return the argv and environment for a curated install."""
+    if source == "apt":
+        return (
+            ["apt-get", "install", "-y", package],
+            dict(os.environ, DEBIAN_FRONTEND="noninteractive"),
+        )
+    if source == "flatpak":
+        return (
+            ["flatpak", "install", "-y", "flathub", package],
+            dict(os.environ),
+        )
+    if source == "flr-box":
+        return (["flr-box", "init", package], dict(os.environ))
+    return None, dict(os.environ)
+
+
+def apt_installed(package):
+    result = run(["dpkg", "-s", package], timeout=5)
+    return result is not None and result.returncode == 0
+
+
+def flatpak_installed(app_id):
+    text = output(["flatpak", "list", "--app"])
+    for line in text.splitlines():
+        fields = line.split("\t")
+        if fields and fields[0] == app_id:
+            return True
+    return False
+
+
+def box_installed(dist):
+    state_root = Path(
+        os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local" / "state"))
+    )
+    try:
+        box_file = state_root / "fluorine" / "box"
+        return box_file.read_text(encoding="utf-8").strip() == f"fluorine-{dist}"
+    except OSError:
+        return False
+
+
+class StoreWindow(Adw.ApplicationWindow):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.set_title("FluorineOS Store")
+        self.set_default_size(980, 640)
+        self.set_size_request(720, 520)
+        self.installed = {}
+        self.installing = set()
+        self._status_timeout = None
+        self.install_buttons = {}
+        self.launch_buttons = {}
+
+        self.toast_overlay = Adw.ToastOverlay()
+        self.toolbar = Adw.ToolbarView()
+        self.toast_overlay.set_child(self.toolbar)
+
+        header = Adw.HeaderBar()
+        header.set_title_widget(
+            Adw.WindowTitle(
+                title="FluorineOS Store",
+                subtitle=os_release("PRETTY_NAME"),
+            )
+        )
+        self.toolbar.add_top_bar(header)
+
+        self.status_pill = Gtk.Label(label="")
+        self.status_pill.add_css_class("status-pill")
+        self.status_pill.set_visible(False)
+        header.pack_end(self.status_pill)
+
+        self.split = Adw.NavigationSplitView()
+        self.split.set_min_sidebar_width(210)
+        self.split.set_max_sidebar_width(264)
+        self.split.set_sidebar_width_fraction(0.24)
+
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.NONE)
+        self.stack.add_css_class("content-pane")
+
+        self.build_sidebar()
+        self.build_pages()
+
+        self.split.set_sidebar(
+            Adw.NavigationPage(child=self.sidebar_pane, title="Categories")
+        )
+        self.split.set_content(Adw.NavigationPage(child=self.stack, title="Store"))
+        self.toolbar.set_content(self.split)
+        self.set_content(self.toast_overlay)
+
+    # -- helpers ---------------------------------------------------------
+
+    def toast(self, message):
+        self.toast_overlay.add_toast(Adw.Toast.new(message))
+
+    def show_status(self, message):
+        self.status_pill.set_text(message)
+        self.status_pill.set_visible(True)
+
+    def flash_status(self, message, milliseconds=1800):
+        self.show_status(message)
+        if getattr(self, "_status_timeout", None):
+            GLib.source_remove(self._status_timeout)
+        self._status_timeout = GLib.timeout_add(milliseconds, self._hide_status)
+
+    def _hide_status(self):
+        self._status_timeout = None
+        self.status_pill.set_visible(False)
+        return False
+
+    def page(self, name):
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        body.set_margin_top(16)
+        body.set_margin_bottom(16)
+        body.set_margin_start(16)
+        body.set_margin_end(16)
+        scroll.set_child(body)
+        self.stack.add_named(scroll, name)
+        return body
+
+    def panel(self, parent, title, note=None):
+        frame = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        frame.add_css_class("panel")
+
+        heading = Gtk.Label(label=title.upper(), xalign=0)
+        heading.add_css_class("panel-title")
+        frame.append(heading)
+
+        if note:
+            label = Gtk.Label(label=note, xalign=0, wrap=True)
+            label.add_css_class("panel-note")
+            frame.append(label)
+
+        parent.append(frame)
+        return frame
+
+    def row(self, parent, title, subtitle=None):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        box.add_css_class("row")
+
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        text.set_hexpand(True)
+        label = Gtk.Label(label=title, xalign=0)
+        label.add_css_class("row-title")
+        text.append(label)
+        if subtitle:
+            sub = Gtk.Label(label=subtitle, xalign=0, wrap=True)
+            sub.add_css_class("row-sub")
+            text.append(sub)
+        box.append(text)
+
+        parent.append(box)
+        return box
+
+    # -- sidebar ---------------------------------------------------------
+
+    def build_sidebar(self):
+        self.sidebar_pane = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.sidebar_pane.add_css_class("nav-pane")
+
+        self.nav = Gtk.ListBox()
+        self.nav.add_css_class("nav-list")
+        self.nav.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.nav.set_activate_on_single_click(True)
+
+        for category in CATEGORIES:
+            row = Gtk.ListBoxRow()
+            row.page_name = category["id"]
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            image = Gtk.Image.new_from_icon_name(category["icon"])
+            image.set_pixel_size(16)
+            label = Gtk.Label(label=category["title"], xalign=0)
+            box.append(image)
+            box.append(label)
+            row.set_child(box)
+            row.set_cursor_from_name("pointer")
+            row.set_tooltip_text(f"Show the {category['title']} section")
+            self.nav.append(row)
+
+        self.nav.connect("row-selected", self.on_category_selected)
+        self.sidebar_pane.append(self.nav)
+
+    def on_category_selected(self, _listbox, row):
+        if row is None:
+            return
+        self.stack.set_visible_child_name(row.page_name)
+
+    # -- pages -----------------------------------------------------------
+
+    def build_pages(self):
+        for category in CATEGORIES:
+            self.build_category_page(category)
+
+    def build_category_page(self, category):
+        body = self.page(category["id"])
+        self.panel(body, category["title"], category["note"])
+        for entry in category["entries"]:
+            self.app_row(body, category, entry)
+
+    def app_row(self, parent, category, entry):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        box.add_css_class("row")
+
+        image = Gtk.Image()
+        image.set_icon_name(entry.get("icon") or category["icon"])
+        image.set_pixel_size(32)
+        box.append(image)
+
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        text.set_hexpand(True)
+        title = Gtk.Label(label=entry["title"], xalign=0)
+        title.add_css_class("row-title")
+        text.append(title)
+        sub = Gtk.Label(label=entry["summary"], xalign=0, wrap=True)
+        sub.add_css_class("row-sub")
+        text.append(sub)
+        box.append(text)
+
+        source = Gtk.Label(label=entry["source"].upper(), xalign=1)
+        source.add_css_class("value")
+        box.append(source)
+
+        install_button = Gtk.Button(label="Install")
+        install_button.set_cursor_from_name("pointer")
+        install_button.set_tooltip_text("Install through apt, Flatpak, or the flr-box container")
+        if self.installed.get(entry["id"]):
+            install_button.set_label("Installed")
+        if not self.installed.get(entry["id"]):
+            install_button.add_css_class("action")
+        install_button.connect(
+            "clicked", lambda _button, target=entry: self.on_install(target, install_button)
+        )
+
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        button_box.append(install_button)
+
+        launch_button = None
+        if entry.get("command"):
+            launch_button = Gtk.Button(label="Launch")
+            launch_button.set_cursor_from_name("pointer")
+            launch_button.connect(
+                "clicked", lambda _button, target=entry: self.on_launch(target)
+            )
+            button_box.append(launch_button)
+
+        box.append(button_box)
+        parent.append(box)
+
+        self.installed[entry["id"]] = self.is_installed(entry)
+        self.install_buttons[entry["id"]] = install_button
+        if launch_button is not None:
+            self.launch_buttons[entry["id"]] = launch_button
+
+    # -- install actions ---------------------------------------------------
+
+    def on_install(self, entry, button):
+        if entry["id"] in self.installing:
+            return
+        command, env = install_command(entry["source"], entry["package"])
+        if command is None:
+            self.flash_status(f"{entry['title']} has no install path")
+            return
+        self.installing.add(entry["id"])
+        button.set_label("Installing...")
+        button.set_sensitive(False)
+        worker = threading.Thread(
+            target=self.install_worker, args=(entry, button, command, env), daemon=True
+        )
+        worker.start()
+
+    def install_worker(self, entry, button, command, env):
+        self._install_entry = entry
+        self._install_button = button
+        self._install_rc = 1
+        self._install_line = ""
+        self._progress_line = ""
+
+        self.show_status(f"Installing {entry['title']}")
+        try:
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=env,
+            )
+            while True:
+                line = process.stdout.readline()
+                if not line:
+                    break
+                self._progress_line = line.strip()
+                GLib.timeout_add(0, self._progress_tick)
+            returncode = process.wait()
+        except (OSError, subprocess.SubprocessError) as error:
+            returncode = 1
+            self._progress_line = f"install failed: {error}"
+
+        self._install_rc = returncode
+        self._install_line = self._progress_line
+        GLib.timeout_add(0, self._install_done)
+
+    def _progress_tick(self):
+        self.status_pill.set_text(self._progress_line or "Working")
+        self.status_pill.set_visible(True)
+        return False
+
+    def _install_done(self):
+        entry = self._install_entry
+        button = self._install_button
+        returncode = self._install_rc
+        line = self._install_line
+
+        self.installing.discard(entry["id"])
+        button.set_sensitive(True)
+
+        if returncode == 0:
+            installed = self.is_installed(entry)
+            self.installed[entry["id"]] = installed
+            if installed:
+                button.set_label("Installed")
+                button.remove_css_class("action")
+            else:
+                button.set_label("Install")
+                button.add_css_class("action")
+            self.flash_status(f"Installed {entry['title']}")
+            self.toast(Adw.Toast.new(f"Installed {entry['title']}"))
+        else:
+            button.set_label("Install")
+            button.add_css_class("action")
+            message = (line or "").strip() or f"Install of {entry['title']} failed"
+            self.flash_status(message)
+            self.toast(Adw.Toast.new(f"Install failed for {entry['title']}"))
+        return False
+
+    def is_installed(self, entry):
+        source = entry["source"]
+        if source == "apt":
+            return apt_installed(entry["package"])
+        if source == "flatpak":
+            return flatpak_installed(entry["package"])
+        if source == "flr-box":
+            return box_installed(entry["package"])
+        return False
+
+    def on_launch(self, entry):
+        command = entry.get("command")
+        if not command:
+            return
+        launched = launch_float(command, width=980, height=660)
+        if launched:
+            self.toast(Adw.Toast.new(f"Launching {entry['title']}"))
+        else:
+            self.toast(Adw.Toast.new(f"Could not launch {entry['title']}"))
+
+
+class StoreApp(Adw.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID)
+
+    def do_activate(self):
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
+
+        window = self.get_active_window()
+        if window is None:
+            window = StoreWindow(application=self)
+        window.present()
+
+
+def main(argv):
+    return StoreApp().run(argv)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

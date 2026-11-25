@@ -28,9 +28,11 @@
 | `/usr/share/fluorineos/shaders/mono.glsl` | Grayscale focus-mode display shader |
 | `/usr/bin/flr-osd` | Transient confirmation for volume, mic, backlight, and Wi-Fi changes |
 | `/usr/bin/flr-settings` | Native GTK4 and libadwaita settings panel |
+| `/usr/bin/flr-store` | Curated application hub with GTK4 and libadwaita interface |
 | `/usr/bin/flr-config` | Apply the geometry and idle state in `~/.config/fluorine/config.lua` |
 | `/etc/skel/.config/fluorine/config.lua` | Editable gaps, border width, and idle lock timeout |
 | `/usr/share/applications/fluorine-settings.desktop` | Desktop entry with the flr-settings icon |
+| `/usr/share/applications/flr-store.desktop` | Desktop entry for the application hub |
 | `/usr/bin/flr-shader` | Display shader cycle, picker, and restore |
 | `/usr/bin/flr-wall` | Wallpaper picker, next, set, and restore |
 | `/usr/bin/flr-shot` | Interactive area screenshot |
@@ -124,6 +126,13 @@ cycling, the keybinding cheatsheet, `flr-doctor` in a persistent terminal, the s
 list in a persistent terminal, and lock, suspend, reboot, and shutdown. Every row
 carries its themed icon, so the menu matches the Waybar slots. The Waybar SYS indicator
 opens the same menu, and a right click runs `flr-update` in a terminal.
+
+`flr-store` is the curated application hub: a GTK4 and libadwaita window that groups
+verified developer tools, browsers, and media software into Development, Web, Multimedia,
+and System Utilities categories, and installs them through apt, Flatpak, or a flr-box
+container. Installs run on worker threads and report progress through the inline status
+pill and toasts. The hub opens with `SUPER + S` and from the `Application Hub` row in the
+`flr-ctl` Fuzzel menu.
 
 `flr-update` refreshes APT metadata, lists the incoming FluorineOS and security packages,
 runs the upgrade, and reports whether `/var/run/reboot-required` was written. `flr-update
