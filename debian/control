@@ -13,6 +13,9 @@ Depends: hyprland, hypridle, hyprlock, waybar, kitty, fuzzel,
  brightnessctl, wireplumber, jq, libnotify-bin, network-manager, bluez,
  blueman, power-profiles-daemon, kanshi, wdisplays, pulsemixer, pavucontrol,
  btrfs-progs, snapper, podman, distrobox,
+ thunar, thunar-volman, thunar-archive-plugin, tumbler, gvfs, gvfs-backends,
+ file-roller, unzip, zip, xz-utils, swayimg, zathura, zathura-pdf-poppler,
+ mousepad, galculator, btop, xdg-user-dirs,
  python3, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1
 Recommends: fluorine-artwork
 Description: FluorineOS AMOLED Hyprland desktop environment
@@ -60,6 +63,15 @@ Description: FluorineOS AMOLED Hyprland desktop environment
  matching flr-* command, so the panel and the keyboard workflow share one
  state. flr-config owns the editable state in ~/.config/fluorine/config.lua
  and applies it to Hyprland and hypridle.
+ .
+ The daily-driver utilities follow the same palette: Thunar with volume and
+ archive plugins plus Tumbler thumbnails, File Roller for zip, tar, and 7z
+ archives, swayimg as the Wayland image viewer, Zathura with Poppler for
+ recolored dark PDF viewing, Mousepad for plain text, and galculator as a
+ floating calculator. Default MIME handlers in /etc/xdg/mimeapps.list and
+ /etc/skel/.config/mimeapps.list route directories, images, documents, and
+ archives to those applications, and xdg-user-dirs-update runs at session
+ start so the standard home folders exist for the Thunar sidebar.
  .
  Configuration is installed into /etc/skel/.config so that newly created
  users receive the FluorineOS desktop on first login. The first interactive

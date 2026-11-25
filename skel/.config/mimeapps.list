@@ -1,0 +1,13 @@
+[Default Applications]
+inode/directory=thunar.desktop;
+application/pdf=org.pwmt.zathura.desktop;
+image/png=swayimg.desktop;
+image/jpeg=swayimg.desktop;
+image/webp=swayimg.desktop;
+image/gif=swayimg.desktop;
+image/svg+xml=swayimg.desktop;
+application/zip=org.gnome.FileRoller.desktop;
+application/x-tar=org.gnome.FileRoller.desktop;
+application/x-compressed-tar=org.gnome.FileRoller.desktop;
+application/x-7z-compressed=org.gnome.FileRoller.desktop;
+text/plain=org.xfce.mousepad.desktop;

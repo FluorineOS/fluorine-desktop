@@ -1,3 +1,24 @@
+fluorine-desktop (0.10.0) trixie; urgency=medium
+
+  * Depend on the daily-driver utilities: Thunar with thunar-volman,
+    thunar-archive-plugin, Tumbler, and the gvfs backends for the file
+    manager; File Roller with unzip, zip, and xz-utils for archives; swayimg
+    for images; Zathura with zathura-pdf-poppler for PDFs; Mousepad for plain
+    text; galculator; btop; and xdg-user-dirs.
+  * Ship /etc/xdg/mimeapps.list and /etc/skel/.config/mimeapps.list so
+    directories open in Thunar, PNG, JPEG, WebP, GIF, and SVG images in
+    swayimg, PDFs in Zathura, zip, tar, and 7z archives in File Roller, and
+    plain text in Mousepad.
+  * Run xdg-user-dirs-update at session start so ~/Desktop, ~/Documents,
+    ~/Downloads, ~/Pictures, and ~/Videos exist on first login and the Thunar
+    sidebar has real targets.
+  * Open Thunar with SUPER + E, and float galculator at 360x480, File Roller
+    at 680x460, and a btop window at 900x560, all centred, so none of them
+    disturbs the tiled layout.
+  * Add System Monitor to flr-ctl for the floating btop window.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Wed, 25 Nov 2026 09:45:00 +0530
+
 fluorine-desktop (0.9.0) trixie; urgency=medium
 
   * Add flr-settings, a native GTK4 and libadwaita control panel with a

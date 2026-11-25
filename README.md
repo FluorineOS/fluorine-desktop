@@ -44,6 +44,34 @@
 | `/usr/bin/flr-snapshot` | Btrfs snapshot create, list, and rollback |
 | `/usr/bin/flr-mode` | Work, focus, and present workstation profiles |
 | `/usr/bin/flr-box` | Rootless Podman and Distrobox development boxes |
+| `/etc/xdg/mimeapps.list` | System-wide default handlers for files, images, PDFs, and archives |
+| `/etc/skel/.config/mimeapps.list` | Per-user copy of the same default handlers |
+
+## Daily-Driver Utilities
+
+Every file action has one application. Thunar is the file manager, backed by
+`thunar-volman` for removable media, `thunar-archive-plugin` so right-click archive
+extraction reaches File Roller, Tumbler for thumbnails, and the gvfs backends for trash,
+network shares, and MTP devices. File Roller handles zip, tar, tar-compressed, and 7z
+archives with `unzip`, `zip`, and `xz-utils` installed. swayimg is the Wayland image
+viewer, Zathura with the Poppler plugin reads PDFs in dark recolor mode, Mousepad edits
+plain text, galculator is the calculator, and btop is the system monitor.
+
+Default handlers come from `/etc/xdg/mimeapps.list`, with a copy in
+`/etc/skel/.config/mimeapps.list` so a new user owns their own list: directories open in
+Thunar, PDFs in Zathura, PNG, JPEG, WebP, GIF, and SVG images in swayimg, zip, tar,
+tar-compressed, and 7z archives in File Roller, and plain text in Mousepad. The user copy
+wins once the user changes a default through the desktop, and the system list stays as
+the fallback.
+
+`xdg-user-dirs-update` runs at session start. On the first login it creates `~/Desktop`,
+`~/Documents`, `~/Downloads`, `~/Pictures`, and `~/Videos` with the localized names from
+`/etc/xdg/user-dirs.defaults`, so the Thunar sidebar, file dialogs, and the wallpaper
+picker all point at real folders. Later logins leave existing folders untouched.
+
+`SUPER + E` opens Thunar. galculator floats centred at 360x480, File Roller at 680x460,
+and btop, which `flr-ctl` starts as System Monitor with its own window class, at 900x560,
+so none of them takes a tiled workspace slot.
 
 ## Desktop Behavior
 

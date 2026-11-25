@@ -197,6 +197,36 @@ hl.window_rule({
     size   = { 880, 600 },
 })
 
+-- galculator draws a fixed-size keypad, so it floats centred at the size its
+-- layout expects instead of taking a tiled workspace slot.
+hl.window_rule({
+    name   = "fluorine-calculator",
+    match  = { class = "^(?i)galculator$" },
+    float  = true,
+    center = true,
+    size   = { 360, 480 },
+})
+
+-- File Roller is a transient archive window opened from Thunar. Floating it
+-- keeps the file manager layout intact while the archive is inspected.
+hl.window_rule({
+    name   = "fluorine-archive-manager",
+    match  = { class = "^(?i)(org\\.gnome\\.FileRoller|file-roller)$" },
+    float  = true,
+    center = true,
+    size   = { 680, 460 },
+})
+
+-- flr-ctl opens btop with its own window class, so the system monitor floats
+-- at a readable size and tiles are left alone.
+hl.window_rule({
+    name   = "fluorine-monitor",
+    match  = { class = "^(?i)flr-btop$" },
+    float  = true,
+    center = true,
+    size   = { 900, 560 },
+})
+
 ---------------------
 ---- AUTOSTART ------
 ---------------------
@@ -208,6 +238,10 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("swaync")
     hl.exec_cmd("lxpolkit")
     hl.exec_cmd("hypridle")
+    -- Create ~/Desktop, ~/Documents, ~/Downloads, ~/Pictures, and ~/Videos on
+    -- first login so the Thunar sidebar and file dialogs have real targets.
+    -- The command is idempotent and does nothing once the folders exist.
+    hl.exec_cmd("xdg-user-dirs-update")
     -- Reapply the geometry and idle timeout saved in
     -- ~/.config/fluorine/config.lua before the rest of the shell starts.
     hl.exec_cmd("flr-config apply")

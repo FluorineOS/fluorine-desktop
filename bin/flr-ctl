@@ -8,7 +8,8 @@ usage() {
     printf 'Usage: %s\n\n' "${program}"
     printf 'Open the FluorineOS system menu in Fuzzel. The graphical settings\n'
     printf 'panel, network, Bluetooth, display layout, audio, display shader, power,\n'
-    printf 'snapshots, workstation mode, diagnostics, and session actions are\n'
+    printf 'snapshots, workstation mode, diagnostics, the system monitor, and\n'
+    printf 'session actions are\n'
     printf 'reachable from the keyboard alone.\n'
 }
 
@@ -49,6 +50,16 @@ launch_tui() {
     fi
 
     die "flr-tui is required to open $1 in a terminal"
+}
+
+# btop gets its own window class so the Hyprland rule can float it at a
+# readable size without touching tiled terminals.
+launch_monitor() {
+    if command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+        exec hyprctl dispatch exec "[float;size 900 560;center] kitty --class flr-btop -e btop"
+    fi
+
+    exec kitty --class flr-btop -e btop
 }
 
 # A persistent terminal keeps diagnostic output readable after the command
@@ -112,6 +123,7 @@ entries=(
     "${power_entry}"
     "Keybinding Cheatsheet"
     "System Diagnostics"
+    "System Monitor"
     "Snapshots"
     "Workstation Mode"
     "Lock Session"
@@ -159,6 +171,13 @@ case "${selection}" in
         ;;
     "System Diagnostics")
         launch_persistent_tui flr-doctor
+        ;;
+    "System Monitor")
+        if command -v btop >/dev/null 2>&1; then
+            launch_monitor
+        fi
+
+        die "btop is required to open the system monitor"
         ;;
     "Snapshots")
         launch_persistent_tui "flr-snapshot list"
