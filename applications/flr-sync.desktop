@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=FluorineOS Sync
+Comment=Declarative dotfile and state manager for FluorineOS
+Exec=flr-sync --gui
+Icon=flr-ctl
+Terminal=false
+Categories=Utility;Development;
+Keywords=sync;dotfiles;backup;restore;state;configs;
+StartupWMClass=org.fluorineos.Sync

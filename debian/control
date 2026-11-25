@@ -16,7 +16,7 @@ Depends: hyprland, hypridle, hyprlock, waybar, kitty, fuzzel,
  thunar, thunar-volman, thunar-archive-plugin, tumbler, gvfs, gvfs-backends,
  file-roller, unzip, zip, xz-utils, swayimg, zathura, zathura-pdf-poppler,
  mousepad, galculator, btop, xdg-user-dirs,
- python3, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, flatpak
+ python3, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, flatpak, git
 Recommends: fluorine-artwork
 Description: FluorineOS AMOLED Hyprland desktop environment
  FluorineOS desktop configuration for Hyprland 0.55 and later, built on a
@@ -36,6 +36,12 @@ Description: FluorineOS AMOLED Hyprland desktop environment
  browsers, and media software into Development, Web, Multimedia, and System
  Utilities categories, and installs them through apt, Flatpak, or a flr-box
  container.
+ .
+ flr-sync is the declarative dotfile and state manager that exports user
+ configurations into versioned archives, mirrors them into a local Git
+ repository that can be pushed to a remote, restores them with a dry-run
+ conflict preview and a Btrfs pre-restore snapshot, and reports sync status
+ against the tracked snapshot.
  .
  Hardware integration covers NetworkManager connections through nmtui, the
  Bluetooth manager, power profile cycling through power-profiles-daemon, and

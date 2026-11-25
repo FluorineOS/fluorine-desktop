@@ -126,6 +126,9 @@ fi
 entries=(
     "Application Hub|SUPER + S|flr-ctl"
     "Settings|SUPER + ,|flr-settings"
+    "Backup State|flr-sync backup|flr-ctl"
+    "Restore Configs|flr-sync --gui|flr-ctl"
+    "View Sync Status|flr-sync status|flr-ctl"
     "Network Settings||flr-network"
     "Bluetooth Devices||flr-bluetooth"
     "Display Layout||flr-display"
@@ -153,11 +156,20 @@ menu() {
     done
 }
 
-selection="$(menu | fuzzel --dmenu --prompt "${prompt}" --lines 18 --width 48)" || exit 0
+selection="$(menu | fuzzel --dmenu --prompt "${prompt}" --lines 22 --width 48)" || exit 0
 
 case "${selection}" in
     "Application Hub"*)
         exec flr-store
+        ;;
+    "Backup State"*)
+        launch_persistent_tui "flr-sync backup"
+        ;;
+    "Restore Configs"*)
+        exec flr-sync --gui
+        ;;
+    "View Sync Status"*)
+        launch_persistent_tui "flr-sync status"
         ;;
     "Settings"*)
         exec flr-settings

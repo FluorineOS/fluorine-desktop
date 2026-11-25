@@ -1,3 +1,18 @@
+fluorine-desktop (0.15.0) trixie; urgency=medium
+
+  * Add the flr-sync declarative dotfile and state manager. The tool exports
+    user configurations into versioned archives, mirrors them into a local Git
+    repository that can be pushed to a remote, restores them onto a fresh
+    installation with a dry-run conflict preview and one Btrfs pre-restore
+    snapshot, and compares the live configuration against the tracked snapshot.
+  * Add the Backup State, Restore Configs, and View Sync Status actions to the
+    Fuzzel control menu, and a GTK4 companion interface with backup, preview,
+    restore, status, and remote push controls.
+  * Add the flr-sync desktop entry and depend on git for local versioning and
+    remote sync.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Wed, 25 Nov 2026 17:40:00 +0530
+
 fluorine-desktop (0.14.0) trixie; urgency=medium
 
   * Add the flr-store curated application hub. The GTK4 and libadwaita

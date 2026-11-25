@@ -29,10 +29,12 @@
 | `/usr/bin/flr-osd` | Transient confirmation for volume, mic, backlight, and Wi-Fi changes |
 | `/usr/bin/flr-settings` | Native GTK4 and libadwaita settings panel |
 | `/usr/bin/flr-store` | Curated application hub with GTK4 and libadwaita interface |
+| `/usr/bin/flr-sync` | Declarative dotfile and state manager with GTK4 companion interface |
 | `/usr/bin/flr-config` | Apply the geometry and idle state in `~/.config/fluorine/config.lua` |
 | `/etc/skel/.config/fluorine/config.lua` | Editable gaps, border width, and idle lock timeout |
 | `/usr/share/applications/fluorine-settings.desktop` | Desktop entry with the flr-settings icon |
 | `/usr/share/applications/flr-store.desktop` | Desktop entry for the application hub |
+| `/usr/share/applications/flr-sync.desktop` | Desktop entry for the dotfile and state manager |
 | `/usr/bin/flr-shader` | Display shader cycle, picker, and restore |
 | `/usr/bin/flr-wall` | Wallpaper picker, next, set, and restore |
 | `/usr/bin/flr-shot` | Interactive area screenshot |
@@ -133,6 +135,18 @@ and System Utilities categories, and installs them through apt, Flatpak, or a fl
 container. Installs run on worker threads and report progress through the inline status
 pill and toasts. The hub opens with `SUPER + S` and from the `Application Hub` row in the
 `flr-ctl` Fuzzel menu.
+
+`flr-sync` is the declarative dotfile and state manager. It exports `~/.config/fluorine`,
+`~/.config/hypr`, `~/.config/waybar`, `.bashrc`, and `.bash_aliases` into versioned gzip
+archives under `$XDG_STATE_HOME/fluorine/sync/snapshots`, mirrors the same files into a
+local Git repository, and can push that repository to a remote configured with
+`flr-sync remote set URL` and `flr-sync backup --push`. `flr-sync status` compares the live
+files with a snapshot and reports `ok`, `changed`, and `missing` entries. `flr-sync restore
+--dry-run` previews conflicts, and a real restore creates one `flr-sync-pre-restore` Btrfs
+snapshot through snapper before writing anything. The GTK4 companion interface exposes
+Backup State, Preview Changes, Restore Configs, View Sync Status, and Push to Remote, with
+restore requiring a second confirmation after the preview. The Backup State, Restore
+Configs, and View Sync Status actions also live in the Fuzzel control menu.
 
 `flr-update` refreshes APT metadata, lists the incoming FluorineOS and security packages,
 runs the upgrade, and reports whether `/var/run/reboot-required` was written. `flr-update

@@ -1,0 +1,656 @@
+#!/usr/bin/env python3
+"""FluorineOS Sync.
+
+A declarative dotfile and state manager for the FluorineOS desktop. The tool
+exports user configurations into versioned archives, keeps a local Git history
+that can be pushed to a remote for cross-machine sync, restores state with a
+dry-run conflict preview and an automatic Btrfs pre-restore snapshot, and
+compares the live configuration against the tracked snapshot.
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+import tarfile
+import threading
+import time
+from pathlib import Path
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+
+from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
+
+APP_ID = "org.fluorineos.Sync"
+FLR_SYNC_VERSION = "0.1.0"
+
+CSS = """
+window {
+    background-color: #000000;
+    color: #e2e8f0;
+    font-family: "Space Grotesk", "Inter", sans-serif;
+    font-size: 13px;
+}
+
+headerbar {
+    background: #0a0d10;
+    border-bottom: 1.5px solid #1c2229;
+    box-shadow: none;
+    min-height: 46px;
+}
+
+headerbar windowtitle {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: #e2e8f0;
+}
+
+.panel {
+    background: #0a0d10;
+    border: 1.5px solid #1c2229;
+    padding: 12px 14px;
+}
+
+.panel-title {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #6e7681;
+}
+
+.status-text {
+    font-size: 12px;
+    color: #e2e8f0;
+}
+
+.status-text.ok {
+    color: #b4f03a;
+}
+
+.status-text.changed {
+    color: #e2e8f0;
+}
+
+.status-text.missing {
+    color: #6e7681;
+}
+
+button {
+    background: #0a0d10;
+    border: 1.5px solid #1c2229;
+    border-radius: 0;
+    padding: 6px 11px;
+    color: #e2e8f0;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+button:hover {
+    border-color: #b4f03a;
+    color: #b4f03a;
+}
+
+button.action {
+    background: #b4f03a;
+    border-color: #b4f03a;
+    color: #000000;
+}
+
+button.action:hover {
+    background: #b4f03a;
+    border-color: #b4f03a;
+    color: #000000;
+}
+
+button:disabled {
+    opacity: 0.45;
+}
+
+.status-pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #b4f03a;
+    background: #0a0d10;
+    border: 1.5px solid #b4f03a;
+    padding: 3px 8px;
+    margin: 0 6px;
+}
+
+button:focus-visible {
+    outline: 1.5px solid #b4f03a;
+    outline-offset: 1px;
+}
+
+button:active {
+    background: #2a3812;
+    border-color: #b4f03a;
+}
+"""
+
+# Archive paths are relative to the home directory, so restore can write each
+# entry straight back to its original location on a fresh installation.
+SOURCES = (
+    (".config/fluorine", Path.home() / ".config" / "fluorine"),
+    (".config/hypr", Path.home() / ".config" / "hypr"),
+    (".config/waybar", Path.home() / ".config" / "waybar"),
+    (".bashrc", Path.home() / ".bashrc"),
+    (".bash_aliases", Path.home() / ".bash_aliases"),
+)
+
+
+def run(command, timeout=10, cwd=None):
+    """Run a command and return the completed process, or None."""
+    try:
+        return subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            cwd=cwd,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def available(program):
+    return shutil.which(program) is not None
+
+
+def os_release(field):
+    try:
+        text = Path("/etc/os-release").read_text(encoding="utf-8")
+    except OSError:
+        return "unknown"
+    for line in text.splitlines():
+        if line.startswith(field + "="):
+            return line.split("=", 1)[1].strip().strip('"')
+    return "unknown"
+
+
+def state_dir():
+    base = Path(os.environ.get("XDG_STATE_HOME") or (Path.home() / ".local" / "state"))
+    return base / "fluorine" / "sync"
+
+
+def snapshots_dir():
+    return state_dir() / "snapshots"
+
+
+def repo_dir():
+    return state_dir() / "repo"
+
+
+def remote_file():
+    return state_dir() / "remote"
+
+
+def tracked_files():
+    """Yield (home-relative path, live file) for every tracked configuration."""
+    for relative, source in SOURCES:
+        if source.is_dir():
+            for child in sorted(source.rglob("*")):
+                if child.is_file():
+                    yield relative + "/" + child.relative_to(source).as_posix(), child
+        elif source.is_file():
+            yield relative, source
+
+
+def safe_relative(name):
+    """Reject absolute or traversing paths from an imported snapshot."""
+    path = Path(name)
+    return not path.is_absolute() and ".." not in path.parts
+
+
+def timestamp():
+    return time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+
+
+def backup_archive():
+    directory = snapshots_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    stamp = timestamp()
+    path = directory / ("flr-sync-%s.tar.gz" % stamp)
+    if path.exists():
+        path = directory / ("flr-sync-%s-%s.tar.gz" % (stamp, os.getpid()))
+    with tarfile.open(path, "w:gz") as archive:
+        for relative, source in tracked_files():
+            archive.add(source, arcname=relative)
+    return path
+
+
+def latest_archive():
+    directory = snapshots_dir()
+    if not directory.is_dir():
+        return None
+    candidates = sorted(directory.glob("flr-sync-*.tar.gz"))
+    return str(candidates[-1]) if candidates else None
+
+
+def snapshot_items(path=None, from_git=False):
+    """Yield (home-relative path, bytes) from an archive or the Git checkout."""
+    if from_git:
+        directory = repo_dir()
+        if not directory.is_dir():
+            return []
+        items = []
+        for child in sorted(directory.rglob("*")):
+            if not child.is_file() or ".git" in child.parts:
+                continue
+            relative = child.relative_to(directory)
+            if safe_relative(relative.as_posix()):
+                items.append((relative.as_posix(), child.read_bytes()))
+        return items
+
+    if not path:
+        return []
+    items = []
+    with tarfile.open(str(path), "r:gz") as archive:
+        for member in archive.getmembers():
+            if not member.isfile() or not safe_relative(member.name):
+                continue
+            handle = archive.extractfile(member)
+            items.append((member.name, handle.read() if handle else b""))
+    return items
+
+
+def file_bytes(path):
+    try:
+        return path.read_bytes()
+    except OSError:
+        return None
+
+
+def btrfs_root_mounted():
+    try:
+        lines = Path("/proc/mounts").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    for line in lines:
+        parts = line.split()
+        if len(parts) >= 4 and parts[2] == "btrfs" and parts[1] == "/":
+            return True
+    return False
+
+
+def ensure_pre_restore_snapshot():
+    """Create one Btrfs snapshot before any restore writes files."""
+    if not btrfs_root_mounted():
+        return "no btrfs root; skipped pre-restore snapshot"
+    if not available("snapper"):
+        return "snapper not installed; skipped pre-restore snapshot"
+    result = run(
+        ["snapper", "create", "--description", "flr-sync-pre-restore"],
+        timeout=120,
+    )
+    if result is None or result.returncode != 0:
+        return "pre-restore snapshot failed"
+    return "created pre-restore snapshot flr-sync-pre-restore"
+
+
+def restore_snapshot(path=None, dry_run=False, from_git=False):
+    items = snapshot_items(path, from_git=from_git)
+    if not items:
+        return ["no tracked snapshot found"]
+
+    report = []
+    if not dry_run:
+        report.append(ensure_pre_restore_snapshot())
+
+    for name, data in items:
+        target = Path.home() / name
+        if dry_run:
+            if not target.exists():
+                report.append("missing " + name)
+            elif (file_bytes(target) or b"") != data:
+                report.append("would-overwrite " + name)
+            else:
+                report.append("unchanged " + name)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        report.append("restored " + name)
+    return report
+
+
+def status_snapshot(path=None, from_git=False):
+    items = snapshot_items(path, from_git=from_git)
+    if not items:
+        return ["no tracked snapshot found"]
+    lines = []
+    for name, data in items:
+        local = Path.home() / name
+        if not local.exists():
+            lines.append("missing " + name)
+        elif (file_bytes(local) or b"") != data:
+            lines.append("changed " + name)
+        else:
+            lines.append("ok " + name)
+    return lines
+
+
+def git(args, timeout=60):
+    if not available("git"):
+        return None
+    return run(["git"] + list(args), timeout=timeout, cwd=repo_dir())
+
+
+def sync_git_repo(push=False):
+    """Version the tracked files locally and optionally push to a remote."""
+    if not available("git"):
+        return ["git not installed; local archive only"]
+
+    directory = repo_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    if not (directory / ".git").exists():
+        result = git(["init", "-q"])
+        if result is None or result.returncode != 0:
+            return ["git init failed; local archive only"]
+
+    for relative, source in tracked_files():
+        destination = directory / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+
+    for child in sorted(directory.rglob("*")):
+        if not child.is_file() or ".git" in child.parts:
+            continue
+        relative = child.relative_to(directory)
+        if not (Path.home() / relative).exists():
+            child.unlink()
+
+    result = git(["add", "-A"])
+    if result is None or result.returncode != 0:
+        return ["git add failed; local archive only"]
+
+    result = git(["diff", "--cached", "--quiet"])
+    lines = []
+    if result is not None and result.returncode == 1:
+        commit = git(["commit", "-q", "-m", "flr-sync state %s" % timestamp()])
+        if commit is not None and commit.returncode == 0:
+            lines.append("committed tracked state to local git repository")
+        else:
+            lines.append("git commit failed; local archive only")
+    else:
+        lines.append("local git repository already up to date")
+
+    if not push:
+        return lines
+
+    try:
+        url = remote_file().read_text(encoding="utf-8").strip()
+    except OSError:
+        url = ""
+    if not url:
+        lines.append("no remote configured; use 'flr-sync remote set URL'")
+        return lines
+
+    git(["remote", "remove", "origin"])
+    result = git(["remote", "add", "origin", url])
+    if result is None or result.returncode != 0:
+        lines.append("git remote setup failed")
+        return lines
+    result = git(["push", "-q", "-u", "origin", "HEAD"])
+    if result is None or result.returncode != 0:
+        lines.append("git push failed; local archive and commit are intact")
+    else:
+        lines.append("pushed tracked state to remote")
+    return lines
+
+
+def perform_backup(push=False):
+    archive = backup_archive()
+    lines = ["backup wrote %s" % archive]
+    lines.extend(sync_git_repo(push=push))
+    return lines
+
+
+class SyncWindow(Adw.ApplicationWindow):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.set_title("FluorineOS Sync")
+        self.set_default_size(820, 520)
+        self.set_size_request(640, 420)
+        self.busy = False
+        self.restore_previewed = False
+        self.result = []
+        self.pending_action = None
+
+        self.toast_overlay = Adw.ToastOverlay()
+        self.toolbar = Adw.ToolbarView()
+        self.toast_overlay.set_child(self.toolbar)
+
+        header = Adw.HeaderBar()
+        header.set_title_widget(
+            Adw.WindowTitle(
+                title="FluorineOS Sync",
+                subtitle=os_release("PRETTY_NAME"),
+            )
+        )
+        self.status_pill = Gtk.Label(label="")
+        self.status_pill.add_css_class("status-pill")
+        self.status_pill.set_visible(False)
+        header.pack_end(self.status_pill)
+        self.toolbar.add_top_bar(header)
+
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        body.set_margin_top(16)
+        body.set_margin_bottom(16)
+        body.set_margin_start(16)
+        body.set_margin_end(16)
+        body.set_vexpand(True)
+
+        frame = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        frame.add_css_class("panel")
+        frame.set_vexpand(True)
+        heading = Gtk.Label(label="SYNC STATUS", xalign=0)
+        heading.add_css_class("panel-title")
+        frame.append(heading)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+        self.status_body = Gtk.Label(label="no snapshot tracked", xalign=0, wrap=True)
+        self.status_body.add_css_class("status-text")
+        self.status_body.set_selectable(True)
+        scroll.set_child(self.status_body)
+        frame.append(scroll)
+        body.append(frame)
+
+        buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.buttons = {}
+        for label, action, style in (
+            ("Backup State", "backup", "action"),
+            ("Preview Changes", "preview", None),
+            ("Restore Configs", "restore", None),
+            ("View Sync Status", "status", None),
+            ("Push to Remote", "push", None),
+        ):
+            button = Gtk.Button(label=label)
+            button.set_cursor_from_name("pointer")
+            if style:
+                button.add_css_class(style)
+            button.connect("clicked", self.on_action, action)
+            buttons.append(button)
+            self.buttons[action] = button
+        body.append(buttons)
+
+        self.toolbar.set_content(body)
+        self.set_content(self.toast_overlay)
+
+    def toast(self, message):
+        self.toast_overlay.add_toast(Adw.Toast.new(message))
+
+    def flash_status(self, message, milliseconds=2000):
+        self.status_pill.set_text(message)
+        self.status_pill.set_visible(True)
+        if getattr(self, "_status_timeout", None):
+            GLib.source_remove(self._status_timeout)
+        self._status_timeout = GLib.timeout_add(milliseconds, self._hide_status)
+
+    def _hide_status(self):
+        self._status_timeout = None
+        self.status_pill.set_visible(False)
+        return False
+
+    def show_result(self, lines):
+        self.status_body.set_text("\n".join(lines) or "done")
+
+    def set_busy(self, busy):
+        self.busy = busy
+        for button in self.buttons.values():
+            button.set_sensitive(not busy)
+
+    def on_action(self, _button, action):
+        if self.busy:
+            return
+        if action == "restore" and self.restore_previewed:
+            self.restore_previewed = False
+            self.buttons["restore"].set_label("Restore Configs")
+        self.pending_action = action
+        self.set_busy(True)
+        self.flash_status("working")
+        worker = threading.Thread(target=self.worker, args=(action,), daemon=True)
+        worker.start()
+
+    def worker(self, action):
+        if action == "backup":
+            self.result = perform_backup(push=False)
+        elif action == "preview":
+            self.result = restore_snapshot(latest_archive(), dry_run=True)
+        elif action == "restore":
+            if self.restore_previewed:
+                self.result = restore_snapshot(latest_archive(), dry_run=False)
+            else:
+                self.result = restore_snapshot(latest_archive(), dry_run=True)
+        elif action == "status":
+            self.result = status_snapshot(latest_archive())
+        elif action == "push":
+            self.result = sync_git_repo(push=True)
+        GLib.timeout_add(0, self.on_worker_done, action)
+
+    def on_worker_done(self, action):
+        self.set_busy(False)
+        self.show_result(self.result)
+        self.flash_status("done")
+
+        if action == "backup":
+            self.toast("Backup complete")
+        elif action == "preview":
+            self.toast("Conflict preview ready")
+        elif action == "restore":
+            if self.restore_previewed:
+                self.toast("Restore complete")
+            else:
+                self.restore_previewed = True
+                self.buttons["restore"].set_label("Confirm Restore")
+                self.toast("Preview shown; click again to apply")
+        elif action == "status":
+            self.toast("Status refreshed")
+        elif action == "push":
+            self.toast("Remote sync attempted")
+        return False
+
+
+class SyncApp(Adw.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID)
+
+    def do_activate(self):
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
+
+        window = self.get_active_window()
+        if window is None:
+            window = SyncWindow(application=self)
+        window.present()
+
+
+def usage():
+    print("usage: flr-sync <command> [argument] [options]")
+    print("commands:")
+    print("  backup [--push]                Write a versioned archive and commit state")
+    print("  restore [latest|ARCHIVE]       Restore a snapshot after a Btrfs pre-check")
+    print("  status [latest|ARCHIVE]        Compare local files with a snapshot")
+    print("  remote set URL                 Set the Git remote used by backup --push")
+    print("  remote show                    Show the configured Git remote")
+    print("  gui                            Open the GTK4 companion interface")
+    print("options:")
+    print("  --dry-run                      Preview conflicts without writing files")
+    print("  --from-git                     Read state from the local Git checkout")
+    print("  -h, --help                     Show this help")
+
+
+def cli(argv):
+    if not argv or argv[0] in ("-h", "--help"):
+        usage()
+        return 0 if argv else 2
+
+    command = argv[0]
+    rest = argv[1:]
+    dry_run = "--dry-run" in rest
+    from_git = "--from-git" in rest
+    positional = [item for item in rest if not item.startswith("--")]
+
+    if command == "backup":
+        for line in perform_backup(push="--push" in rest):
+            print(line)
+        return 0
+
+    if command == "restore":
+        target = positional[0] if positional else "latest"
+        if target == "latest":
+            target = None if from_git else latest_archive()
+        for line in restore_snapshot(target, dry_run=dry_run, from_git=from_git):
+            print(line)
+        return 0
+
+    if command == "status":
+        target = positional[0] if positional else "latest"
+        if target == "latest":
+            target = None if from_git else latest_archive()
+        for line in status_snapshot(target, from_git=from_git):
+            print(line)
+        return 0
+
+    if command == "remote":
+        if len(positional) >= 2 and positional[0] == "set":
+            directory = state_dir()
+            directory.mkdir(parents=True, exist_ok=True)
+            remote_file().write_text(positional[1] + "\n", encoding="utf-8")
+            print("remote set to " + positional[1])
+            return 0
+        if positional and positional[0] == "show":
+            try:
+                url = remote_file().read_text(encoding="utf-8").strip()
+            except OSError:
+                url = ""
+            print(url or "no remote configured")
+            return 0
+        usage()
+        return 2
+
+    if command == "gui":
+        return SyncApp().run([])
+
+    usage()
+    return 2
+
+
+def main(argv):
+    if "--gui" in argv:
+        return SyncApp().run([])
+    return cli(argv)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
