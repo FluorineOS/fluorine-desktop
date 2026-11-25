@@ -1,3 +1,18 @@
+fluorine-desktop (0.15.1) trixie; urgency=medium
+
+  * Fix flr-sync GUI restore confirmation, worker error recovery, Btrfs
+    pre-restore abort, Git mirror pruning, symlink handling, CLI exit codes,
+    argument validation, and the version string.
+  * Fix flr-store notifications, privileged apt installs through pkexec,
+    Flathub remote setup, Epiphany package selection, concurrent install
+    state, GTK thread marshalling, installed-state buttons, launch reporting,
+    and design token styling.
+  * Fix flr-ctl command argument splitting, Waybar icon modules, and
+    flr-settings styling. Declare the pkexec dependency.
+  * Update the package README for 0.15.1 and verified dependencies.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Wed, 25 Nov 2026 21:30:00 +0530
+
 fluorine-desktop (0.15.0) trixie; urgency=medium
 
   * Add the flr-sync declarative dotfile and state manager. The tool exports
