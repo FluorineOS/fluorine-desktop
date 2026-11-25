@@ -52,6 +52,19 @@ window#waybar {
     color: #6e7681;
 }
 
+/* Standalone icon modules pair with the native status module that follows
+   them. They carry the same 1.5px hairline as the text slot, and the image
+   itself is 16px so the 32px bar keeps an even rhythm. */
+#custom-icon-bluetooth,
+#custom-icon-network,
+#custom-icon-audio,
+#custom-icon-battery,
+#custom-icon-clock {
+    padding: 0 0 0 8px;
+    background: transparent;
+    border-bottom: 1.5px solid #1c2229;
+}
+
 /* Every module is a clickable slot: the resting hairline is the bar's own
    1.5px rule, and hover raises the fill to #141920 and lights the underline
    lime, so the pointer always knows which control is armed. */
@@ -59,7 +72,16 @@ window#waybar {
 #network,
 #battery,
 #clock,
-#bluetooth,
+#bluetooth {
+    padding: 0 8px 0 4px;
+    background: transparent;
+    color: #e2e8f0;
+    border-bottom: 1.5px solid #1c2229;
+    transition: background 120ms linear, border-color 120ms linear, color 120ms linear;
+}
+
+/* These custom modules carry their icon inside the same slot, so the text
+   keeps the full horizontal padding. */
 #custom-power,
 #custom-mode,
 #custom-system {
@@ -68,6 +90,14 @@ window#waybar {
     color: #e2e8f0;
     border-bottom: 1.5px solid #1c2229;
     transition: background 120ms linear, border-color 120ms linear, color 120ms linear;
+}
+
+/* The inline SVG sits in the module's image button. Six pixels of separation
+   keeps it from touching the text without changing the slot padding. */
+#custom-mode .image-button,
+#custom-system .image-button,
+#custom-power .image-button {
+    margin-right: 6px;
 }
 
 #pulseaudio:hover,

@@ -4,14 +4,18 @@
     "height": 32,
     "spacing": 0,
     "modules-left": ["hyprland/workspaces", "hyprland/window"],
-    "modules-center": ["clock"],
+    "modules-center": ["custom/icon-clock", "clock"],
     "modules-right": [
         "custom/mode",
         "custom/system",
         "custom/power",
+        "custom/icon-bluetooth",
         "bluetooth",
+        "custom/icon-network",
         "network",
+        "custom/icon-audio",
         "pulseaudio",
+        "custom/icon-battery",
         "battery"
     ],
 
@@ -70,12 +74,16 @@
         "exec": "flr-mode status",
         "interval": 0,
         "signal": 10,
+        "image-name": "flr-mode",
+        "icon-size": 16,
         "tooltip": "Workstation profile: WORK, FOCUS, or PRESENT\nLeft-click: Open the profile picker (SUPER + M)",
         "on-click": "flr-mode"
     },
 
     "custom/system": {
         "format": "SYS",
+        "image-name": "flr-ctl",
+        "icon-size": 16,
         "tooltip": "System menu\nLeft-click: Open the menu (SUPER + Escape) | Right-click: Check for updates",
         "on-click": "flr-ctl",
         "on-click-right": "flr-tui flr-update"
@@ -85,9 +93,46 @@
         "exec": "flr-power waybar",
         "return-type": "json",
         "interval": 10,
+        "image-name": "flr-power",
+        "icon-size": 16,
         "on-click": "flr-power cycle",
         "on-scroll-up": "flr-power cycle",
         "on-scroll-down": "flr-power cycle"
+    },
+
+    "custom/icon-bluetooth": {
+        "format": "",
+        "image-name": "flr-bluetooth",
+        "icon-size": 16,
+        "tooltip": false
+    },
+
+    "custom/icon-network": {
+        "format": "",
+        "image-name": "flr-network",
+        "icon-size": 16,
+        "tooltip": false
+    },
+
+    "custom/icon-audio": {
+        "format": "",
+        "image-name": "flr-audio",
+        "icon-size": 16,
+        "tooltip": false
+    },
+
+    "custom/icon-battery": {
+        "format": "",
+        "image-name": "flr-battery",
+        "icon-size": 16,
+        "tooltip": false
+    },
+
+    "custom/icon-clock": {
+        "format": "",
+        "image-name": "flr-clock",
+        "icon-size": 16,
+        "tooltip": false
     },
 
     "battery": {

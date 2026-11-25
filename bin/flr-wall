@@ -226,13 +226,18 @@ pick_wall() {
 
     # Each row pairs the file name with what selecting it does, so the menu
     # reads as an action list instead of a bare directory listing. The " | "
-    # separator is stripped again before the name is resolved.
-    rows=()
-    for wallpaper in "${wallpapers[@]##*/}"; do
-        rows+=("$(printf '%-26s | %s' "${wallpaper}" "Set as wallpaper")")
-    done
+    # separator is stripped again before the name is resolved. The icon suffix
+    # uses the Rofi extended dmenu protocol and is removed by Fuzzel.
+    menu() {
+        local wallpaper
 
-    selection=$(printf '%s\n' "${rows[@]}" |
+        for wallpaper in "${wallpapers[@]##*/}"; do
+            printf '%-26s | %s\0icon\x1f%s\n' \
+                "${wallpaper}" "Set as wallpaper" "flr-wall"
+        done
+    }
+
+    selection=$(menu |
         fuzzel --dmenu --prompt "Wallpaper > " --lines 8 --width 52) || exit 0
 
     [ -n "${selection}" ] || exit 0

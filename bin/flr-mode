@@ -192,14 +192,19 @@ pick_mode() {
     fi
 
     # Each row pairs the profile with the layout it applies, so the picker
-    # reads as three described choices instead of three bare words.
-    local -a rows=(
-        "$(printf '%-10s | %s' work 'Normal gaps, bar visible, idle lock on')"
-        "$(printf '%-10s | %s' focus 'No gaps, bar hidden, do not disturb')"
-        "$(printf '%-10s | %s' present 'Wide gaps, no idle lock, do not disturb')"
-    )
+    # reads as three described choices instead of three bare words. The icon
+    # suffix uses the Rofi extended dmenu protocol and is stripped by Fuzzel
+    # before the selection is printed.
+    menu() {
+        printf '%-10s | %s\0icon\x1f%s\n' \
+            work 'Normal gaps, bar visible, idle lock on' flr-mode
+        printf '%-10s | %s\0icon\x1f%s\n' \
+            focus 'No gaps, bar hidden, do not disturb' flr-mode
+        printf '%-10s | %s\0icon\x1f%s\n' \
+            present 'Wide gaps, no idle lock, do not disturb' flr-mode
+    }
 
-    selection=$(printf '%s\n' "${rows[@]}" |
+    selection=$(menu |
         fuzzel --dmenu --prompt "Mode > " --lines 3 --width 52) || exit 0
 
     [ -n "${selection}" ] || exit 0

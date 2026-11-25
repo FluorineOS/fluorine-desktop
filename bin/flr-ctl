@@ -8,8 +8,11 @@ readonly prompt="System > "
 # hints up down the menu.
 readonly menu_width=36
 
+# Each row carries the icon Fuzzel should draw beside it. The Rofi extended
+# dmenu protocol appends a NUL, the literal "icon", a unit separator, and the
+# themed icon name; Fuzzel strips that suffix before printing the selection.
 row() {
-    printf '%-*s%s' "${menu_width}" "$1" "$2"
+    printf '%-*s%s\0icon\x1f%s\n' "${menu_width}" "$1" "$2" "$3"
 }
 
 usage() {
@@ -121,26 +124,35 @@ if profile_label="$(power_profile)"; then
 fi
 
 entries=(
-    "$(row "Settings" "SUPER + ,")"
-    "$(row "Network Settings" "")"
-    "$(row "Bluetooth Devices" "")"
-    "$(row "Display Layout" "")"
-    "$(row "Audio Mixer" "")"
-    "$(row "Display Shader" "SUPER + SHIFT + N")"
-    "$(row "Wallpaper" "SUPER + W")"
-    "$(row "${power_entry}" "")"
-    "$(row "Keybinding Cheatsheet" "SUPER + /")"
-    "$(row "System Diagnostics" "")"
-    "$(row "System Monitor" "")"
-    "$(row "Snapshots" "")"
-    "$(row "Workstation Mode" "SUPER + M")"
-    "$(row "Lock Session" "SUPER + L")"
-    "$(row "Suspend" "")"
-    "$(row "Reboot" "")"
-    "$(row "Shut Down" "")"
+    "Settings|SUPER + ,|flr-settings"
+    "Network Settings||flr-network"
+    "Bluetooth Devices||flr-bluetooth"
+    "Display Layout||flr-display"
+    "Audio Mixer||flr-audio"
+    "Display Shader|SUPER + SHIFT + N|flr-shader"
+    "Wallpaper|SUPER + W|flr-wall"
+    "${power_entry}||flr-power"
+    "Keybinding Cheatsheet|SUPER + /|flr-keys"
+    "System Diagnostics||flr-doctor"
+    "System Monitor||flr-monitor"
+    "Snapshots||flr-snapshot"
+    "Workstation Mode|SUPER + M|flr-mode"
+    "Lock Session|SUPER + L|flr-lock"
+    "Suspend||flr-suspend"
+    "Reboot||flr-reboot"
+    "Shut Down||flr-poweroff"
 )
 
-selection="$(printf '%s\n' "${entries[@]}" | fuzzel --dmenu --prompt "${prompt}" --lines 15 --width 48)" || exit 0
+menu() {
+    local entry label hint icon
+
+    for entry in "${entries[@]}"; do
+        IFS='|' read -r label hint icon <<<"${entry}"
+        row "${label}" "${hint}" "${icon}"
+    done
+}
+
+selection="$(menu | fuzzel --dmenu --prompt "${prompt}" --lines 15 --width 48)" || exit 0
 
 case "${selection}" in
     "Settings"*)

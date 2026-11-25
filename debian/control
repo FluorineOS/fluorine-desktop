@@ -28,6 +28,10 @@ Description: FluorineOS AMOLED Hyprland desktop environment
  cliphist clipboard history, and the flr-shot, flr-keys, flr-doctor, and
  flr-onboard command line utilities.
  .
+ Waybar pairs its status modules with the Fluorine icon theme, Fuzzel draws
+ the same icons in its application and action menus, and the settings panel
+ uses the symbolic variants so GTK can recolor them for each row state.
+ .
  Hardware integration covers NetworkManager connections through nmtui, the
  Bluetooth manager, power profile cycling through power-profiles-daemon, and
  automatic external display layouts through kanshi.

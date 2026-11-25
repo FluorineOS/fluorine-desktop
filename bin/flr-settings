@@ -695,12 +695,12 @@ class SettingsWindow(Adw.ApplicationWindow):
         self.nav.set_activate_on_single_click(True)
 
         sections = [
-            ("appearance", "Appearance", "preferences-desktop-symbolic"),
-            ("workstation", "Workstation", "preferences-system-symbolic"),
-            ("displays", "Displays", "video-display-symbolic"),
-            ("network", "Network and Bluetooth", "network-wireless-symbolic"),
-            ("audio", "Audio", "audio-volume-high-symbolic"),
-            ("system", "System and Snapshots", "utilities-system-monitor-symbolic"),
+            ("appearance", "Appearance", "flr-settings-symbolic"),
+            ("workstation", "Workstation", "flr-mode-symbolic"),
+            ("displays", "Displays", "flr-display-symbolic"),
+            ("network", "Network and Bluetooth", "flr-network-symbolic"),
+            ("audio", "Audio", "flr-audio-symbolic"),
+            ("system", "System and Snapshots", "flr-monitor-symbolic"),
         ]
 
         for name, title, icon_name in sections:

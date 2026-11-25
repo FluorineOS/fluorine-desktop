@@ -1,3 +1,17 @@
+fluorine-desktop (0.13.0) trixie; urgency=medium
+
+  * Add the Fluorine geometric SVG icon set to Waybar, Fuzzel, the settings
+    sidebar, and the settings desktop entry. Waybar mode, system, and power
+    slots carry the icon inline; Bluetooth, network, audio, battery, and clock
+    pair a 16px icon module with the native status module.
+  * Enable Fuzzel application icons with the Fluorine theme, and tag every
+    flr-ctl, flr-mode, flr-shader, and flr-wall picker row with its themed
+    icon through the Rofi extended dmenu protocol.
+  * Select the -symbolic icon variants in the flr-settings sidebar so GTK
+    recolors them for the resting, hover, and selected row states.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Wed, 25 Nov 2026 16:50:00 +0530
+
 fluorine-desktop (0.12.0) trixie; urgency=medium
 
   * Default the session wallpaper and the lock screen to the shipped 4K

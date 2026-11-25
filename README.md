@@ -18,10 +18,10 @@
 | `/etc/skel/.config/hypr/hypridle.conf` | Idle policy: dim at 5 min, lock at 10 min, battery suspend at 20 min |
 | `/etc/skel/.config/hypr/hyprlock.conf` | Lock screen with OLED burn-in protection |
 | `/etc/skel/.config/hypr/.luarc.json` | Lua language server settings |
-| `/etc/skel/.config/waybar/config.jsonc` | Waybar layout |
+| `/etc/skel/.config/waybar/config.jsonc` | Waybar layout with Fluorine status icons |
 | `/etc/skel/.config/waybar/style.css` | Waybar stylesheet |
 | `/etc/skel/.config/kitty/kitty.conf` | Kitty terminal theme |
-| `/etc/skel/.config/fuzzel/fuzzel.ini` | Fuzzel launcher theme |
+| `/etc/skel/.config/fuzzel/fuzzel.ini` | Fuzzel launcher theme with Fluorine icons |
 | `/etc/skel/.config/swaync/style.css` | SwayNotificationCenter theme |
 | `/etc/skel/.config/kanshi/config` | Display profiles applied on output hotplug |
 | `/usr/share/fluorineos/shaders/night.glsl` | Warm low-blue-light display shader |
@@ -30,7 +30,7 @@
 | `/usr/bin/flr-settings` | Native GTK4 and libadwaita settings panel |
 | `/usr/bin/flr-config` | Apply the geometry and idle state in `~/.config/fluorine/config.lua` |
 | `/etc/skel/.config/fluorine/config.lua` | Editable gaps, border width, and idle lock timeout |
-| `/usr/share/applications/fluorine-settings.desktop` | Desktop entry for Fuzzel and application menus |
+| `/usr/share/applications/fluorine-settings.desktop` | Desktop entry with the flr-settings icon |
 | `/usr/bin/flr-shader` | Display shader cycle, picker, and restore |
 | `/usr/bin/flr-wall` | Wallpaper picker, next, set, and restore |
 | `/usr/bin/flr-shot` | Interactive area screenshot |
@@ -119,10 +119,11 @@ share one replacing notification id per tool, so holding a volume key updates a 
 card instead of stacking a column.
 
 `flr-ctl` collects the hardware and session actions in one Fuzzel menu: network settings
-through `nmtui`, the Bluetooth manager, `wdisplays`, the audio mixer, power profile cycling,
-the keybinding cheatsheet, `flr-doctor` in a persistent terminal, the snapshot list in a
-persistent terminal, and lock, suspend, reboot, and shutdown. The Waybar SYS indicator opens the same menu, and a right click runs
-`flr-update` in a terminal.
+through `nmtui`, the Bluetooth manager, `wdisplays`, the audio mixer, power profile
+cycling, the keybinding cheatsheet, `flr-doctor` in a persistent terminal, the snapshot
+list in a persistent terminal, and lock, suspend, reboot, and shutdown. Every row
+carries its themed icon, so the menu matches the Waybar slots. The Waybar SYS indicator
+opens the same menu, and a right click runs `flr-update` in a terminal.
 
 `flr-update` refreshes APT metadata, lists the incoming FluorineOS and security packages,
 runs the upgrade, and reports whether `/var/run/reboot-required` was written. `flr-update
@@ -163,15 +164,17 @@ screen follows the desktop. `flr-wall set <path>` and `flr-wall next` cover scri
 When `fluorine-artwork` is absent the switcher falls back to `swaybg -c '#000000'`.
 
 `flr-settings` is the graphical counterpart to these commands: a native GTK4 and
-libadwaita window with a navigation sidebar and six sections. Appearance holds the wallpaper
-grid, the display shader, and the window geometry; Workstation switches the profile, the
-idle lock timeout, and the first-login cheat sheet; Displays reads `hyprctl monitors` and
-applies a scale; Network and Bluetooth report live state and launch `nmtui`, `bluetui`, or
-`blueman-manager` in floating windows; Audio drives the default sink and source through
-`wpctl`; System and Snapshots shows the OS and hardware summary with the snapshot list.
-Nothing is reimplemented: every control calls the same `flr-*` command the keyboard
-workflow uses. `SUPER + comma` opens the panel, it is the first entry in `flr-ctl`, and
-Hyprland floats it at 880x600 in the centre of the screen.
+libadwaita window with a navigation sidebar and six sections. Appearance holds the
+wallpaper grid, the display shader, and the window geometry; Workstation switches the
+profile, the idle lock timeout, and the first-login cheat sheet; Displays reads
+`hyprctl monitors` and applies a scale; Network and Bluetooth report live state and
+launch `nmtui`, `bluetui`, or `blueman-manager` in floating windows; Audio drives the
+default sink and source through `wpctl`; System and Snapshots shows the OS and hardware
+summary with the snapshot list. The sidebar uses the symbolic icon variants, so each
+glyph follows the resting, hover, and selected row color. Nothing is reimplemented:
+every control calls the same `flr-*` command the keyboard workflow uses. `SUPER + comma`
+opens the panel, it is the first entry in `flr-ctl`, and Hyprland floats it at 880x600
+in the centre of the screen.
 
 `flr-config` owns `~/.config/fluorine/config.lua`, a short key = value file holding
 `gaps_in`, `gaps_out`, `border_size`, and `idle_lock`. `flr-config apply` pushes the gaps and
@@ -195,6 +198,14 @@ or springs. Waybar, Fuzzel, and SwayNC share one surface language: a 32px raised
 with a hairline bottom border, a lime underline instead of a lime fill on the active
 workspace, 1.5px hairline borders on panels, cards, and tooltips, and 8px internal padding.
 
+Waybar status slots pair a 16px icon from the Fluorine theme with the native module:
+mode, system, and power carry the icon inline, while Bluetooth, network, audio, battery,
+and clock use a separate icon module beside the native text. Fuzzel enables application
+icons and the same theme, and every row in the `flr-ctl`, `flr-mode`, `flr-shader`, and
+`flr-wall` pickers carries its icon through the Rofi extended dmenu protocol. The
+settings sidebar uses the symbolic variants, so GTK recolors each glyph for the resting,
+hover, and selected states.
+
 `kanshi` watches output events. The shipped profile matches every output, keeping the
 preferred mode, automatic placement, and unity scale, so docking and undocking do not
 require manual `hyprctl` commands. Use `wdisplays` for interactive layout adjustments and
@@ -208,7 +219,7 @@ present, which is the normal case in a virtual machine.
 | Field | Value |
 | --- | --- |
 | Name | `fluorine-desktop` |
-| Version | `0.8.0` |
+| Version | `0.13.0` |
 | Architecture | `all` |
 
 Runtime dependencies are declared by the package: `hyprland`, `hypridle`, `hyprlock`,
@@ -251,7 +262,7 @@ Requires `dpkg-dev` and `debhelper` on Debian 13 `amd64`.
 git clone https://github.com/FluorineOS/fluorine-desktop.git
 cd fluorine-desktop
 dpkg-buildpackage -us -uc -b
-dpkg-deb -c ../fluorine-desktop_0.8.0_all.deb
+dpkg-deb -c ../fluorine-desktop_0.13.0_all.deb
 ```
 
 The built `.deb` is written to the parent directory.

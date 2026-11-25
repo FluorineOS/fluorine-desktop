@@ -134,7 +134,18 @@ pick_shader() {
         return 0
     fi
 
-    selection=$(printf '%s\n' "${shaders[@]}" |
+    # The Rofi extended dmenu protocol carries the themed icon name after a
+    # NUL and a unit separator. Fuzzel strips the suffix before printing the
+    # selected shader.
+    menu() {
+        local shader
+
+        for shader in "${shaders[@]}"; do
+            printf '%s\0icon\x1f%s\n' "${shader}" "flr-shader"
+        done
+    }
+
+    selection=$(menu |
         fuzzel --dmenu --prompt "Shader > " --lines 3 --width 24) || exit 0
 
     [ -n "${selection}" ] || exit 0
