@@ -76,15 +76,17 @@ launch_monitor() {
 # A persistent terminal keeps diagnostic output readable after the command
 # exits, which is the point of the doctor entry.
 launch_persistent_tui() {
+    local -a args=("$@")
+
     if command -v kitty >/dev/null 2>&1; then
         if command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
-            exec hyprctl dispatch exec "[float;size 1100 720;center] kitty --hold --class flr-tui -e $1"
+            exec hyprctl dispatch exec "[float;size 1100 720;center] kitty --hold --class flr-tui -e ${args[*]}"
         fi
 
-        exec kitty --hold --class flr-tui -e "$1"
+        exec kitty --hold --class flr-tui -e "${args[@]}"
     fi
 
-    exec "$1"
+    exec "${args[@]}"
 }
 
 audio_menu() {
@@ -163,13 +165,13 @@ case "${selection}" in
         exec flr-store
         ;;
     "Backup State"*)
-        launch_persistent_tui "flr-sync backup"
+        launch_persistent_tui flr-sync backup
         ;;
     "Restore Configs"*)
         exec flr-sync --gui
         ;;
     "View Sync Status"*)
-        launch_persistent_tui "flr-sync status"
+        launch_persistent_tui flr-sync status
         ;;
     "Settings"*)
         exec flr-settings
@@ -216,7 +218,7 @@ case "${selection}" in
         die "btop is required to open the system monitor"
         ;;
     "Snapshots"*)
-        launch_persistent_tui "flr-snapshot list"
+        launch_persistent_tui flr-snapshot list
         ;;
     "Workstation Mode"*)
         exec flr-mode
