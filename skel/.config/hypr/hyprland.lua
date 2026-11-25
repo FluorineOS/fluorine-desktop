@@ -245,8 +245,8 @@ hl.on("hyprland.start", function()
     -- Reapply the geometry and idle timeout saved in
     -- ~/.config/fluorine/config.lua before the rest of the shell starts.
     hl.exec_cmd("flr-config apply")
-    -- Apply the saved wallpaper, falling back to the shipped grid wallpaper, so
-    -- the desktop matches the lock screen from the first frame.
+    -- Apply the saved wallpaper, falling back to the shipped 4K wordmark
+    -- wallpaper, so the desktop matches the lock screen from the first frame.
     hl.exec_cmd("flr-wall restore")
     -- Reapply the display shader chosen before the last logout, so the look
     -- survives a restart instead of silently resetting to color-accurate.

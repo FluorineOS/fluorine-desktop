@@ -154,7 +154,9 @@ publishes a container command into `~/.local/bin`, and `flr-box list` shows the 
 
 `flr-wall` lists `/usr/share/backgrounds/fluorine/` and `~/Pictures/Wallpapers/` in a
 Fuzzel picker, applies the choice through `swaybg`, and stores the path in
-`~/.local/state/fluorine/wallpaper`. The Hyprland start hook runs `flr-wall restore`, so the
+`~/.local/state/fluorine/wallpaper`. With no saved choice it applies the shipped 4K
+wordmark wallpaper `wall1.png`, which is also the lock screen default; `wall2.png` and
+`wall3.png` ship beside it. The Hyprland start hook runs `flr-wall restore`, so the
 session comes back on the same wallpaper instead of a bare color, and every switch rewrites
 the `path` line of the `background` block in `~/.config/hypr/hyprlock.conf` so the lock
 screen follows the desktop. `flr-wall set <path>` and `flr-wall next` cover scripted use.

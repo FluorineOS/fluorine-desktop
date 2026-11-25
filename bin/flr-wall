@@ -8,7 +8,7 @@ readonly state_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/fluorine"
 readonly state_file="${state_dir}/wallpaper"
 readonly config_dir="${XDG_CONFIG_HOME:-${HOME}/.config}"
 readonly hyprlock_conf="${config_dir}/hypr/hyprlock.conf"
-readonly default_wall="${system_dir}/fluorine-grid.png"
+readonly default_wall="${system_dir}/wall1.png"
 readonly void_color="#000000"
 
 usage() {
