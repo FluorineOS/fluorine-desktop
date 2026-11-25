@@ -25,13 +25,13 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
 
 APP_ID = "org.fluorineos.Sync"
-FLR_SYNC_VERSION = "0.1.0"
+FLR_SYNC_VERSION = "0.15.1"
 
 CSS = """
 window {
     background-color: #000000;
     color: #e2e8f0;
-    font-family: "Space Grotesk", "Inter", sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-size: 13px;
 }
 
@@ -98,14 +98,9 @@ button.action {
     color: #000000;
 }
 
-button.action:hover {
-    background: #b4f03a;
-    border-color: #b4f03a;
-    color: #000000;
-}
-
 button:disabled {
-    opacity: 0.45;
+    color: #6e7681;
+    border-color: #1c2229;
 }
 
 .status-pill {
@@ -216,8 +211,11 @@ def backup_archive():
     if path.exists():
         path = directory / ("flr-sync-%s-%s.tar.gz" % (stamp, os.getpid()))
     with tarfile.open(path, "w:gz") as archive:
+        # Dereference symlinks so archives, status, and the Git mirror all
+        # hold the same regular file contents.
+        archive.dereference = True
         for relative, source in tracked_files():
-            archive.add(source, arcname=relative)
+            archive.add(source, arcname=relative, recursive=False)
     return path
 
 
@@ -275,50 +273,68 @@ def btrfs_root_mounted():
     return False
 
 
-def ensure_pre_restore_snapshot():
+def pre_restore_snapshot():
     """Create one Btrfs snapshot before any restore writes files."""
     if not btrfs_root_mounted():
-        return "no btrfs root; skipped pre-restore snapshot"
+        return True, "no btrfs root; skipped pre-restore snapshot"
     if not available("snapper"):
-        return "snapper not installed; skipped pre-restore snapshot"
+        return False, "snapper not installed on btrfs root; restore aborted"
     result = run(
         ["snapper", "create", "--description", "flr-sync-pre-restore"],
         timeout=120,
     )
     if result is None or result.returncode != 0:
-        return "pre-restore snapshot failed"
-    return "created pre-restore snapshot flr-sync-pre-restore"
+        return False, "pre-restore snapshot failed; restore aborted"
+    return True, "created pre-restore snapshot flr-sync-pre-restore"
 
 
 def restore_snapshot(path=None, dry_run=False, from_git=False):
-    items = snapshot_items(path, from_git=from_git)
+    """Return (ok, report lines). Never writes when the pre-check fails."""
+    try:
+        items = snapshot_items(path, from_git=from_git)
+    except (OSError, tarfile.TarError) as error:
+        return False, ["error: cannot read snapshot: %s" % error]
     if not items:
-        return ["no tracked snapshot found"]
+        return False, ["no tracked snapshot found"]
 
     report = []
     if not dry_run:
-        report.append(ensure_pre_restore_snapshot())
+        ok, message = pre_restore_snapshot()
+        report.append(message)
+        if not ok:
+            return False, report
 
-    for name, data in items:
-        target = Path.home() / name
-        if dry_run:
-            if not target.exists():
-                report.append("missing " + name)
-            elif (file_bytes(target) or b"") != data:
-                report.append("would-overwrite " + name)
-            else:
-                report.append("unchanged " + name)
-            continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
-        report.append("restored " + name)
-    return report
+    try:
+        for name, data in items:
+            target = Path.home() / name
+            if dry_run:
+                if not target.exists():
+                    report.append("missing " + name)
+                elif (file_bytes(target) or b"") != data:
+                    report.append("would-overwrite " + name)
+                else:
+                    report.append("unchanged " + name)
+                continue
+            if target.is_symlink() or (target.exists() and not target.is_file()):
+                report.append("error: target is not a regular file " + name)
+                return False, report
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+            report.append("restored " + name)
+    except OSError as error:
+        report.append("error: restore failed: %s" % error)
+        return False, report
+    return True, report
 
 
 def status_snapshot(path=None, from_git=False):
-    items = snapshot_items(path, from_git=from_git)
+    """Return (ok, comparison lines)."""
+    try:
+        items = snapshot_items(path, from_git=from_git)
+    except (OSError, tarfile.TarError) as error:
+        return False, ["error: cannot read snapshot: %s" % error]
     if not items:
-        return ["no tracked snapshot found"]
+        return False, ["no tracked snapshot found"]
     lines = []
     for name, data in items:
         local = Path.home() / name
@@ -328,7 +344,7 @@ def status_snapshot(path=None, from_git=False):
             lines.append("changed " + name)
         else:
             lines.append("ok " + name)
-    return lines
+    return True, lines
 
 
 def git(args, timeout=60):
@@ -340,30 +356,25 @@ def git(args, timeout=60):
 def sync_git_repo(push=False):
     """Version the tracked files locally and optionally push to a remote."""
     if not available("git"):
-        return ["git not installed; local archive only"]
+        return False, ["git not installed; local archive only"]
 
     directory = repo_dir()
     directory.mkdir(parents=True, exist_ok=True)
     if not (directory / ".git").exists():
         result = git(["init", "-q"])
         if result is None or result.returncode != 0:
-            return ["git init failed; local archive only"]
+            return False, ["git init failed; local archive only"]
 
+    # Never prune repo files here. On a fresh machine the live configs do not
+    # exist yet, and pruning would delete the checkout needed for --from-git.
     for relative, source in tracked_files():
         destination = directory / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
 
-    for child in sorted(directory.rglob("*")):
-        if not child.is_file() or ".git" in child.parts:
-            continue
-        relative = child.relative_to(directory)
-        if not (Path.home() / relative).exists():
-            child.unlink()
-
     result = git(["add", "-A"])
     if result is None or result.returncode != 0:
-        return ["git add failed; local archive only"]
+        return False, ["git add failed; local archive only"]
 
     result = git(["diff", "--cached", "--quiet"])
     lines = []
@@ -372,39 +383,39 @@ def sync_git_repo(push=False):
         if commit is not None and commit.returncode == 0:
             lines.append("committed tracked state to local git repository")
         else:
-            lines.append("git commit failed; local archive only")
+            return False, ["git commit failed; local archive only"]
     else:
         lines.append("local git repository already up to date")
 
     if not push:
-        return lines
+        return True, lines
 
     try:
         url = remote_file().read_text(encoding="utf-8").strip()
     except OSError:
         url = ""
     if not url:
-        lines.append("no remote configured; use 'flr-sync remote set URL'")
-        return lines
+        return False, lines + ["no remote configured; use 'flr-sync remote set URL'"]
 
     git(["remote", "remove", "origin"])
     result = git(["remote", "add", "origin", url])
     if result is None or result.returncode != 0:
-        lines.append("git remote setup failed")
-        return lines
+        return False, lines + ["git remote setup failed"]
     result = git(["push", "-q", "-u", "origin", "HEAD"])
     if result is None or result.returncode != 0:
-        lines.append("git push failed; local archive and commit are intact")
-    else:
-        lines.append("pushed tracked state to remote")
-    return lines
+        return False, lines + ["git push failed; local archive and commit are intact"]
+    return True, lines + ["pushed tracked state to remote"]
 
 
 def perform_backup(push=False):
-    archive = backup_archive()
+    """Return (ok, report lines)."""
+    try:
+        archive = backup_archive()
+    except OSError as error:
+        return False, ["error: backup failed: %s" % error]
     lines = ["backup wrote %s" % archive]
-    lines.extend(sync_git_repo(push=push))
-    return lines
+    ok, git_lines = sync_git_repo(push=push)
+    return ok, lines + git_lines
 
 
 class SyncWindow(Adw.ApplicationWindow):
@@ -415,8 +426,8 @@ class SyncWindow(Adw.ApplicationWindow):
         self.set_size_request(640, 420)
         self.busy = False
         self.restore_previewed = False
+        self.preview_target = None
         self.result = []
-        self.pending_action = None
 
         self.toast_overlay = Adw.ToastOverlay()
         self.toolbar = Adw.ToolbarView()
@@ -503,54 +514,75 @@ class SyncWindow(Adw.ApplicationWindow):
         for button in self.buttons.values():
             button.set_sensitive(not busy)
 
+    def clear_preview(self):
+        self.restore_previewed = False
+        self.preview_target = None
+        self.buttons["restore"].set_label("Restore Configs")
+
     def on_action(self, _button, action):
         if self.busy:
             return
-        if action == "restore" and self.restore_previewed:
-            self.restore_previewed = False
-            self.buttons["restore"].set_label("Restore Configs")
-        self.pending_action = action
+        if action in ("backup", "push"):
+            self.clear_preview()
+        confirmed = action == "restore" and self.restore_previewed
         self.set_busy(True)
         self.flash_status("working")
-        worker = threading.Thread(target=self.worker, args=(action,), daemon=True)
+        worker = threading.Thread(
+            target=self.worker, args=(action, confirmed), daemon=True
+        )
         worker.start()
 
-    def worker(self, action):
-        if action == "backup":
-            self.result = perform_backup(push=False)
-        elif action == "preview":
-            self.result = restore_snapshot(latest_archive(), dry_run=True)
-        elif action == "restore":
-            if self.restore_previewed:
-                self.result = restore_snapshot(latest_archive(), dry_run=False)
-            else:
-                self.result = restore_snapshot(latest_archive(), dry_run=True)
-        elif action == "status":
-            self.result = status_snapshot(latest_archive())
-        elif action == "push":
-            self.result = sync_git_repo(push=True)
-        GLib.timeout_add(0, self.on_worker_done, action)
+    def worker(self, action, confirmed):
+        """Run one action off-thread; marshal every UI change to the main loop."""
+        ok = True
+        target = None
+        try:
+            if action == "backup":
+                ok, self.result = perform_backup(push=False)
+            elif action == "preview":
+                target = latest_archive()
+                ok, self.result = restore_snapshot(target, dry_run=True)
+            elif action == "restore":
+                target = self.preview_target if confirmed else latest_archive()
+                ok, self.result = restore_snapshot(target, dry_run=not confirmed)
+            elif action == "status":
+                ok, self.result = status_snapshot(latest_archive())
+            elif action == "push":
+                ok, self.result = sync_git_repo(push=True)
+        except Exception as error:  # keep the UI responsive on unexpected errors
+            self.result = ["error: %s" % error]
+            ok = False
+        finally:
+            GLib.timeout_add(0, self.on_worker_done, action, confirmed, ok, target)
 
-    def on_worker_done(self, action):
+    def on_worker_done(self, action, confirmed, ok, target):
         self.set_busy(False)
         self.show_result(self.result)
-        self.flash_status("done")
+        self.flash_status("done" if ok else "failed")
 
-        if action == "backup":
-            self.toast("Backup complete")
-        elif action == "preview":
+        if action == "preview" and ok:
+            self.restore_previewed = True
+            self.preview_target = target
+            self.buttons["restore"].set_label("Confirm Restore")
             self.toast("Conflict preview ready")
         elif action == "restore":
-            if self.restore_previewed:
-                self.toast("Restore complete")
-            else:
+            if confirmed:
+                self.clear_preview()
+                self.toast("Restore complete" if ok else "Restore failed")
+            elif ok:
                 self.restore_previewed = True
+                self.preview_target = target
                 self.buttons["restore"].set_label("Confirm Restore")
                 self.toast("Preview shown; click again to apply")
+            else:
+                self.clear_preview()
+                self.toast("No snapshot to restore")
+        elif action == "backup":
+            self.toast("Backup complete" if ok else "Backup failed")
         elif action == "status":
-            self.toast("Status refreshed")
+            self.toast("Status refreshed" if ok else "Status failed")
         elif action == "push":
-            self.toast("Remote sync attempted")
+            self.toast("Remote sync complete" if ok else "Remote sync failed")
         return False
 
 
@@ -587,49 +619,67 @@ def usage():
     print("options:")
     print("  --dry-run                      Preview conflicts without writing files")
     print("  --from-git                     Read state from the local Git checkout")
+    print("  --version                      Show the flr-sync version")
     print("  -h, --help                     Show this help")
 
 
+def emit(ok, lines):
+    for line in lines:
+        print(line)
+    return 0 if ok else 1
+
+
 def cli(argv):
-    if not argv or argv[0] in ("-h", "--help"):
+    if not argv:
         usage()
-        return 0 if argv else 2
+        return 2
+    if "-h" in argv or "--help" in argv:
+        usage()
+        return 0
+    if "--version" in argv:
+        print("flr-sync " + FLR_SYNC_VERSION)
+        return 0
 
     command = argv[0]
     rest = argv[1:]
     dry_run = "--dry-run" in rest
     from_git = "--from-git" in rest
-    positional = [item for item in rest if not item.startswith("--")]
 
     if command == "backup":
-        for line in perform_backup(push="--push" in rest):
-            print(line)
-        return 0
+        unknown = [item for item in rest if item != "--push"]
+        if len(rest) > 1 or len(set(rest)) != len(rest) or unknown:
+            usage()
+            return 2
+        return emit(*perform_backup(push="--push" in rest))
 
-    if command == "restore":
-        target = positional[0] if positional else "latest"
+    if command in ("restore", "status"):
+        allowed = {"--dry-run", "--from-git"}
+        unknown = [item for item in rest if item.startswith("--") and item not in allowed]
+        positionals = [item for item in rest if not item.startswith("--")]
+        if unknown or len(positionals) > 1:
+            usage()
+            return 2
+        target = positionals[0] if positionals else "latest"
+        if from_git and target != "latest":
+            usage()
+            return 2
         if target == "latest":
             target = None if from_git else latest_archive()
-        for line in restore_snapshot(target, dry_run=dry_run, from_git=from_git):
-            print(line)
-        return 0
-
-    if command == "status":
-        target = positional[0] if positional else "latest"
-        if target == "latest":
-            target = None if from_git else latest_archive()
-        for line in status_snapshot(target, from_git=from_git):
-            print(line)
-        return 0
+        if command == "restore":
+            return emit(*restore_snapshot(target, dry_run=dry_run, from_git=from_git))
+        if dry_run:
+            usage()
+            return 2
+        return emit(*status_snapshot(target, from_git=from_git))
 
     if command == "remote":
-        if len(positional) >= 2 and positional[0] == "set":
+        if len(rest) == 2 and rest[0] == "set" and not rest[1].startswith("-"):
             directory = state_dir()
             directory.mkdir(parents=True, exist_ok=True)
-            remote_file().write_text(positional[1] + "\n", encoding="utf-8")
-            print("remote set to " + positional[1])
+            remote_file().write_text(rest[1] + "\n", encoding="utf-8")
+            print("remote set to " + rest[1])
             return 0
-        if positional and positional[0] == "show":
+        if rest == ["show"]:
             try:
                 url = remote_file().read_text(encoding="utf-8").strip()
             except OSError:
@@ -639,7 +689,7 @@ def cli(argv):
         usage()
         return 2
 
-    if command == "gui":
+    if command == "gui" and not rest:
         return SyncApp().run([])
 
     usage()
@@ -647,7 +697,7 @@ def cli(argv):
 
 
 def main(argv):
-    if "--gui" in argv:
+    if argv and argv[0] == "--gui":
         return SyncApp().run([])
     return cli(argv)
 
