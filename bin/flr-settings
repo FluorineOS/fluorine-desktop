@@ -49,7 +49,7 @@ CSS = """
 window {
     background-color: #000000;
     color: #e2e8f0;
-    font-family: "Space Grotesk", "Inter", sans-serif;
+    font-family: "Space Grotesk", sans-serif;
     font-size: 13px;
 }
 
@@ -72,31 +72,31 @@ headerbar windowtitle {
 }
 
 .nav-list {
-    background: transparent;
+    background: #000000;
     margin: 8px;
 }
 
 .nav-list row {
-    background: transparent;
-    border: 1.5px solid transparent;
+    background: #000000;
+    border: 1.5px solid #1c2229;
     border-radius: 0;
     padding: 7px 9px;
     color: #6e7681;
 }
 
 .nav-list row:hover {
-    border-color: #1c2229;
+    border-color: #b4f03a;
     color: #e2e8f0;
 }
 
 .nav-list row:selected {
-    background: #b4f03a;
+    background: #2a3812;
     border-color: #b4f03a;
 }
 
 .nav-list row:selected label,
 .nav-list row:selected image {
-    color: #000000;
+    color: #e2e8f0;
 }
 
 .content-pane {
@@ -162,8 +162,8 @@ button.action {
 }
 
 button.action:hover {
-    background: #c6f75e;
-    border-color: #c6f75e;
+    background: #b4f03a;
+    border-color: #e2e8f0;
     color: #000000;
 }
 
@@ -273,31 +273,28 @@ button:active,
 dropdown > button:active,
 .nav-list row:active,
 .wall-button:active {
-    background: #141920;
+    background: #2a3812;
     border-color: #b4f03a;
 }
 
-button.action:active {
-    background: #9fd02f;
-    border-color: #9fd02f;
-    color: #000000;
-}
-
+button.action:active,
 button.mode:checked:active {
-    background: #9fd02f;
-    border-color: #9fd02f;
-    color: #000000;
+    background: #2a3812;
+    border-color: #b4f03a;
+    color: #e2e8f0;
 }
 
-/* Unavailable hardware: the control stays in place, dimmed, so the section
-   still shows what it would do on a machine that has the device. */
+/* Unavailable hardware: the control stays in place with muted colors, so the
+   section still shows what it would do on a machine that has the device. */
 button:disabled,
 dropdown > button:disabled,
 switch:disabled,
 scale:disabled,
 .nav-list row:disabled,
 .wall-button:disabled {
-    opacity: 0.45;
+    background: #000000;
+    border-color: #1c2229;
+    color: #6e7681;
 }
 
 .status-pill {
