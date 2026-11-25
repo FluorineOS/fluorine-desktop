@@ -26,7 +26,7 @@ window#waybar {
 }
 
 #workspaces button:hover {
-    background: #141920;
+    background: #2a3812;
     color: #e2e8f0;
     border-bottom-color: #b4f03a;
 }
@@ -53,20 +53,44 @@ window#waybar {
 }
 
 /* Standalone icon modules pair with the native status module that follows
-   them. They carry the same 1.5px hairline as the text slot, and the image
-   itself is 16px so the 32px bar keeps an even rhythm. */
+   them. The SVG is drawn as a CSS background because this Waybar build has
+   no inline icon module keys. */
 #custom-icon-bluetooth,
 #custom-icon-network,
 #custom-icon-audio,
 #custom-icon-battery,
 #custom-icon-clock {
-    padding: 0 0 0 8px;
-    background: transparent;
+    min-width: 24px;
+    padding: 0 4px 0 24px;
+    background-color: transparent;
+    background-position: left center;
+    background-repeat: no-repeat;
+    background-size: 16px 16px;
     border-bottom: 1.5px solid #1c2229;
 }
 
+#custom-icon-bluetooth {
+    background-image: url("/usr/share/icons/Fluorine/scalable/status/flr-bluetooth.svg");
+}
+
+#custom-icon-network {
+    background-image: url("/usr/share/icons/Fluorine/scalable/status/flr-network.svg");
+}
+
+#custom-icon-audio {
+    background-image: url("/usr/share/icons/Fluorine/scalable/status/flr-audio.svg");
+}
+
+#custom-icon-battery {
+    background-image: url("/usr/share/icons/Fluorine/scalable/status/flr-battery.svg");
+}
+
+#custom-icon-clock {
+    background-image: url("/usr/share/icons/Fluorine/scalable/status/flr-clock.svg");
+}
+
 /* Every module is a clickable slot: the resting hairline is the bar's own
-   1.5px rule, and hover raises the fill to #141920 and lights the underline
+   1.5px rule, and hover raises the fill to #2a3812 and lights the underline
    lime, so the pointer always knows which control is armed. */
 #pulseaudio,
 #network,
@@ -74,10 +98,10 @@ window#waybar {
 #clock,
 #bluetooth {
     padding: 0 8px 0 4px;
-    background: transparent;
+    background-color: transparent;
     color: #e2e8f0;
     border-bottom: 1.5px solid #1c2229;
-    transition: background 120ms linear, border-color 120ms linear, color 120ms linear;
+    transition: background-color 120ms linear, border-color 120ms linear, color 120ms linear;
 }
 
 /* These custom modules carry their icon inside the same slot, so the text
@@ -85,19 +109,26 @@ window#waybar {
 #custom-power,
 #custom-mode,
 #custom-system {
-    padding: 0 8px;
-    background: transparent;
+    padding: 0 8px 0 24px;
+    background-color: transparent;
+    background-position: left center;
+    background-repeat: no-repeat;
+    background-size: 16px 16px;
     color: #e2e8f0;
     border-bottom: 1.5px solid #1c2229;
-    transition: background 120ms linear, border-color 120ms linear, color 120ms linear;
+    transition: background-color 120ms linear, border-color 120ms linear, color 120ms linear;
 }
 
-/* The inline SVG sits in the module's image button. Six pixels of separation
-   keeps it from touching the text without changing the slot padding. */
-#custom-mode .image-button,
-#custom-system .image-button,
-#custom-power .image-button {
-    margin-right: 6px;
+#custom-mode {
+    background-image: url("/usr/share/icons/Fluorine/scalable/actions/flr-mode.svg");
+}
+
+#custom-system {
+    background-image: url("/usr/share/icons/Fluorine/scalable/actions/flr-ctl.svg");
+}
+
+#custom-power {
+    background-image: url("/usr/share/icons/Fluorine/scalable/status/flr-power.svg");
 }
 
 #pulseaudio:hover,
@@ -108,7 +139,7 @@ window#waybar {
 #custom-power:hover,
 #custom-mode:hover,
 #custom-system:hover {
-    background: #141920;
+    background-color: #2a3812;
     border-bottom-color: #b4f03a;
     color: #e2e8f0;
 }
