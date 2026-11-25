@@ -184,6 +184,20 @@ hl.layer_rule({
 })
 
 ---------------------
+---- WINDOW RULES ----
+---------------------
+
+-- FluorineOS Settings opens as a centred floating panel. Its two-pane layout is
+-- sized for a dialog, so tiling it into a workspace would waste the sidebar.
+hl.window_rule({
+    name   = "fluorine-settings",
+    match  = { class = "^(org\\.fluorineos\\.Settings|flr-settings)$" },
+    float  = true,
+    center = true,
+    size   = { 880, 600 },
+})
+
+---------------------
 ---- AUTOSTART ------
 ---------------------
 
@@ -194,6 +208,9 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("swaync")
     hl.exec_cmd("lxpolkit")
     hl.exec_cmd("hypridle")
+    -- Reapply the geometry and idle timeout saved in
+    -- ~/.config/fluorine/config.lua before the rest of the shell starts.
+    hl.exec_cmd("flr-config apply")
     -- Apply the saved wallpaper, falling back to the shipped grid wallpaper, so
     -- the desktop matches the lock screen from the first frame.
     hl.exec_cmd("flr-wall restore")
@@ -256,6 +273,8 @@ hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("flr-wall"))
 hl.bind(mainMod .. " + slash",     hl.dsp.exec_cmd("flr-keys"))
 -- Unified system menu: network, Bluetooth, display, audio, power, and session.
 hl.bind(mainMod .. " + Escape",    hl.dsp.exec_cmd("flr-ctl"))
+-- Graphical control panel. The same actions stay reachable from flr-ctl.
+hl.bind(mainMod .. " + comma",     hl.dsp.exec_cmd("flr-settings"))
 hl.bind(mainMod .. " + M",         hl.dsp.exec_cmd("flr-mode"))
 
 -- Move focus with the arrow keys.

@@ -1,3 +1,4 @@
 skel/.config/* etc/skel/.config/
 bin/* usr/bin/
 shaders/* usr/share/fluorineos/shaders/
+applications/*.desktop usr/share/applications/

@@ -17,3 +17,6 @@ debian/fluorine-desktop/
 /fluorine-desktop_*.deb
 /fluorine-desktop_*.buildinfo
 /fluorine-desktop_*.changes
+
+# Python bytecode caches from local syntax and smoke checks.
+__pycache__/

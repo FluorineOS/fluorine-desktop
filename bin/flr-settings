@@ -1,0 +1,1333 @@
+#!/usr/bin/env python3
+"""FluorineOS Settings.
+
+A native GTK4 and libadwaita control panel for the FluorineOS desktop. Every
+control delegates to an existing flr-* command, so the graphical panel and the
+keyboard workflow always read and write the same state.
+
+Sections: Appearance, Workstation, Displays, Network and Bluetooth, Audio, and
+System and Snapshots.
+"""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import threading
+from pathlib import Path
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+gi.require_version("GdkPixbuf", "2.0")
+
+from gi.repository import Adw, Gdk, GdkPixbuf, GLib, Gtk  # noqa: E402
+
+APP_ID = "org.fluorineos.Settings"
+SYSTEM_WALL_DIR = Path("/usr/share/backgrounds/fluorine")
+USER_WALL_DIR = Path.home() / "Pictures" / "Wallpapers"
+CONFIG_FILE = Path(GLib.get_user_config_dir()) / "fluorine" / "config.lua"
+STATE_DIR = Path(GLib.get_user_state_dir()) / "fluorine"
+SHADER_STATE = STATE_DIR / "shader"
+WALL_STATE = STATE_DIR / "wallpaper"
+ONBOARD_MARKER = STATE_DIR / "onboarded"
+
+IDLE_LABELS = ("5m", "10m", "15m", "Never")
+IDLE_SECONDS = (300, 600, 900, 0)
+BORDER_LABELS = ("1px", "1.5px", "2px")
+BORDER_VALUES = (1, 1.5, 2)
+SCALE_VALUES = (1.0, 1.25, 1.5)
+POWER_PROFILES = ("power-saver", "balanced", "performance")
+SHADERS = ("off", "night", "mono")
+MODES = ("work", "focus", "present")
+
+CONFIG_DEFAULTS = {"gaps_in": 4, "gaps_out": 6, "border_size": 2, "idle_lock": 300}
+
+CSS = """
+window {
+    background-color: #000000;
+    color: #e2e8f0;
+    font-family: "Space Grotesk", "Inter", sans-serif;
+    font-size: 13px;
+}
+
+headerbar {
+    background: #0a0d10;
+    border-bottom: 1.5px solid #1c2229;
+    box-shadow: none;
+    min-height: 46px;
+}
+
+headerbar windowtitle {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: #e2e8f0;
+}
+
+.nav-pane {
+    background: #0a0d10;
+    border-right: 1.5px solid #1c2229;
+}
+
+.nav-list {
+    background: transparent;
+    margin: 8px;
+}
+
+.nav-list row {
+    background: transparent;
+    border: 1.5px solid transparent;
+    border-radius: 0;
+    padding: 7px 9px;
+    color: #6e7681;
+}
+
+.nav-list row:hover {
+    border-color: #1c2229;
+    color: #e2e8f0;
+}
+
+.nav-list row:selected {
+    background: #b4f03a;
+    border-color: #b4f03a;
+}
+
+.nav-list row:selected label,
+.nav-list row:selected image {
+    color: #000000;
+}
+
+.content-pane {
+    background: #000000;
+}
+
+.panel {
+    background: #0a0d10;
+    border: 1.5px solid #1c2229;
+    padding: 12px 14px;
+}
+
+.panel-title {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #6e7681;
+}
+
+.panel-note {
+    font-size: 11px;
+    color: #6e7681;
+}
+
+.row {
+    padding: 7px 0;
+}
+
+.row-title {
+    font-size: 13px;
+    color: #e2e8f0;
+}
+
+.row-sub {
+    font-size: 11px;
+    color: #6e7681;
+}
+
+.value {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: #b4f03a;
+}
+
+button {
+    background: #0a0d10;
+    border: 1.5px solid #1c2229;
+    border-radius: 0;
+    padding: 6px 11px;
+    color: #e2e8f0;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+button:hover {
+    border-color: #b4f03a;
+    color: #b4f03a;
+}
+
+button.action {
+    background: #b4f03a;
+    border-color: #b4f03a;
+    color: #000000;
+}
+
+button.action:hover {
+    background: #c6f75e;
+    border-color: #c6f75e;
+    color: #000000;
+}
+
+button.mode {
+    padding: 6px 14px;
+}
+
+button.mode:checked {
+    background: #b4f03a;
+    border-color: #b4f03a;
+    color: #000000;
+}
+
+dropdown > button {
+    background: #0a0d10;
+    border: 1.5px solid #1c2229;
+    border-radius: 0;
+    padding: 5px 10px;
+    min-height: 20px;
+}
+
+dropdown > button:hover {
+    border-color: #b4f03a;
+}
+
+switch {
+    background: #1c2229;
+    border: 1.5px solid #1c2229;
+    border-radius: 0;
+    min-width: 38px;
+    min-height: 20px;
+}
+
+switch:checked {
+    background: #b4f03a;
+    border-color: #b4f03a;
+}
+
+switch > slider {
+    background: #000000;
+    border: none;
+    border-radius: 0;
+    min-width: 16px;
+    min-height: 16px;
+}
+
+scale trough {
+    background: #1c2229;
+    border-radius: 0;
+    min-height: 4px;
+}
+
+scale > trough > highlight {
+    background: #b4f03a;
+    border-radius: 0;
+}
+
+scale > trough > slider {
+    background: #b4f03a;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 12px;
+    min-height: 12px;
+}
+
+.wall-button {
+    background: #000000;
+    border: 1.5px solid #1c2229;
+    padding: 4px;
+}
+
+.wall-button:hover {
+    border-color: #6e7681;
+}
+
+.wall-button.selected {
+    border-color: #b4f03a;
+}
+
+.wall-name {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: #6e7681;
+}
+
+.wall-button.selected .wall-name {
+    color: #b4f03a;
+}
+
+textview {
+    background: #000000;
+    color: #e2e8f0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+}
+
+scrolledwindow.view-frame {
+    border: 1.5px solid #1c2229;
+    background: #000000;
+}
+"""
+
+
+def run(command, timeout=5):
+    """Run a command and return the completed process, or None."""
+    try:
+        return subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def output(command, timeout=5):
+    result = run(command, timeout)
+    if result is None:
+        return ""
+    return (result.stdout or "").strip()
+
+
+def available(program):
+    return shutil.which(program) is not None
+
+
+def read_config():
+    values = dict(CONFIG_DEFAULTS)
+    try:
+        text = CONFIG_FILE.read_text(encoding="utf-8")
+    except OSError:
+        return values
+
+    for line in text.splitlines():
+        line = line.split("--", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, raw = line.partition("=")
+        key = key.strip()
+        if key not in values:
+            continue
+        try:
+            values[key] = int(round(float(raw.strip())))
+        except ValueError:
+            continue
+    return values
+
+
+def os_release(field):
+    try:
+        text = Path("/etc/os-release").read_text(encoding="utf-8")
+    except OSError:
+        return "unknown"
+    for line in text.splitlines():
+        if line.startswith(field + "="):
+            return line.split("=", 1)[1].strip().strip('"')
+    return "unknown"
+
+
+def memory_summary():
+    try:
+        lines = Path("/proc/meminfo").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return "unknown"
+    for line in lines:
+        if line.startswith("MemTotal:"):
+            parts = line.split()
+            if len(parts) >= 2:
+                return f"{float(parts[1]) / 1048576.0:.1f} GiB"
+    return "unknown"
+
+
+def gpu_driver():
+    drivers = []
+    for path in sorted(Path("/sys/class/drm").glob("card*/device/driver")):
+        try:
+            name = os.path.basename(os.readlink(path))
+        except OSError:
+            continue
+        if name not in drivers:
+            drivers.append(name)
+    return ", ".join(drivers) if drivers else "unknown"
+
+
+def zram_summary():
+    if not available("zramctl"):
+        return "not available"
+    text = output(["zramctl", "--noheadings", "--output", "NAME,SIZE"])
+    devices = [line.split()[0] for line in text.splitlines() if line.strip()]
+    if not devices:
+        return "no device"
+    return f"{len(devices)} device(s): {', '.join(devices)}"
+
+
+def wallpaper_files():
+    files = []
+    for directory in (SYSTEM_WALL_DIR, USER_WALL_DIR):
+        if not directory.is_dir():
+            continue
+        for suffix in ("*.png", "*.jpg", "*.jpeg", "*.webp"):
+            files.extend(sorted(directory.glob(suffix)))
+    return files
+
+
+def current_wallpaper():
+    text = output(["flr-wall", "status"])
+    if text:
+        return Path(text.splitlines()[0].strip())
+    try:
+        return Path(WALL_STATE.read_text(encoding="utf-8").strip())
+    except OSError:
+        return SYSTEM_WALL_DIR / "fluorine-grid.png"
+
+
+def current_shader():
+    try:
+        name = SHADER_STATE.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "off"
+    return name if name in SHADERS else "off"
+
+
+def hyprland_running():
+    return bool(os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")) and available("hyprctl")
+
+
+def monitors():
+    if not hyprland_running():
+        return []
+    text = output(["hyprctl", "monitors", "-j"])
+    if not text:
+        return []
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def launch_float(command, width=980, height=660):
+    """Open a tool as a floating, centred window when Hyprland is running."""
+    if hyprland_running():
+        rule = f"[float;size {width} {height};center] {command}"
+        return run(["hyprctl", "dispatch", "exec", rule], timeout=8) is not None
+    try:
+        subprocess.Popen(command.split(), start_new_session=True)
+        return True
+    except OSError:
+        return False
+
+
+def launch_terminal(command, hold=False, width=980, height=660):
+    """Run an interactive command in its own Kitty window."""
+    if not available("kitty"):
+        return launch_float(command, width, height)
+    parts = ["kitty", "--class", "flr-tui"]
+    if hold:
+        parts.append("--hold")
+    parts.extend(["-e", command])
+    return launch_float(" ".join(parts), width, height)
+
+
+class SettingsWindow(Adw.ApplicationWindow):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.set_title("FluorineOS Settings")
+        self.set_default_size(880, 600)
+        self.set_size_request(720, 520)
+        self.updating = False
+
+        self.toast_overlay = Adw.ToastOverlay()
+        self.toolbar = Adw.ToolbarView()
+        self.toast_overlay.set_child(self.toolbar)
+
+        header = Adw.HeaderBar()
+        header.set_title_widget(
+            Adw.WindowTitle(
+                title="FluorineOS Settings",
+                subtitle=os_release("PRETTY_NAME"),
+            )
+        )
+        self.toolbar.add_top_bar(header)
+
+        self.split = Adw.NavigationSplitView()
+        self.split.set_min_sidebar_width(210)
+        self.split.set_max_sidebar_width(264)
+        self.split.set_sidebar_width_fraction(0.24)
+
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.NONE)
+        self.stack.add_css_class("content-pane")
+
+        self.refreshers = {}
+
+        self.build_sidebar()
+        self.build_pages()
+
+        self.split.set_sidebar(
+            Adw.NavigationPage(child=self.sidebar_pane, title="Sections")
+        )
+        self.split.set_content(Adw.NavigationPage(child=self.stack, title="Settings"))
+        self.toolbar.set_content(self.split)
+        self.set_content(self.toast_overlay)
+
+    # -- helpers ---------------------------------------------------------
+
+    def toast(self, message):
+        self.toast_overlay.add_toast(Adw.Toast.new(message))
+
+    def page(self, name):
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        body.set_margin_top(16)
+        body.set_margin_bottom(16)
+        body.set_margin_start(16)
+        body.set_margin_end(16)
+        scroll.set_child(body)
+        self.stack.add_named(scroll, name)
+        return body
+
+    def panel(self, parent, title, note=None):
+        frame = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        frame.add_css_class("panel")
+
+        heading = Gtk.Label(label=title.upper(), xalign=0)
+        heading.add_css_class("panel-title")
+        frame.append(heading)
+
+        if note:
+            label = Gtk.Label(label=note, xalign=0, wrap=True)
+            label.add_css_class("panel-note")
+            frame.append(label)
+
+        parent.append(frame)
+        return frame
+
+    def row(self, parent, title, subtitle=None):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        box.add_css_class("row")
+
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        text.set_hexpand(True)
+        label = Gtk.Label(label=title, xalign=0)
+        label.add_css_class("row-title")
+        text.append(label)
+        if subtitle:
+            sub = Gtk.Label(label=subtitle, xalign=0, wrap=True)
+            sub.add_css_class("row-sub")
+            text.append(sub)
+        box.append(text)
+
+        parent.append(box)
+        return box
+
+    def value_label(self, text="-"):
+        label = Gtk.Label(label=text, xalign=1)
+        label.add_css_class("value")
+        return label
+
+    def switch(self, active, callback):
+        widget = Gtk.Switch(active=active, valign=Gtk.Align.CENTER)
+        widget.connect(
+            "notify::active",
+            lambda control, _pspec: None if self.updating else callback(control.get_active()),
+        )
+        return widget
+
+    def dropdown(self, options, selected, callback):
+        widget = Gtk.DropDown.new_from_strings(list(options))
+        widget.set_valign(Gtk.Align.CENTER)
+        if selected in options:
+            widget.set_selected(list(options).index(selected))
+        widget.connect(
+            "notify::selected",
+            lambda control, _pspec: None
+            if self.updating
+            else callback(list(options)[control.get_selected()]),
+        )
+        return widget
+
+    def slider(self, lower, upper, step, value, callback):
+        widget = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, lower, upper, step)
+        widget.set_value(value)
+        widget.set_hexpand(True)
+        widget.set_size_request(180, -1)
+        widget.set_draw_value(False)
+        widget.connect(
+            "value-changed",
+            lambda control: None if self.updating else callback(control.get_value()),
+        )
+        return widget
+
+    def action_row(self, parent, buttons):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        box.add_css_class("row")
+        for label, handler, primary in buttons:
+            button = Gtk.Button(label=label)
+            if primary:
+                button.add_css_class("action")
+            button.connect("clicked", lambda _button, fn=handler: fn())
+            box.append(button)
+        parent.append(box)
+        return box
+
+    def guarded(self, refresh):
+        """Run a refresh without echoing its writes back into the system."""
+        self.updating = True
+        try:
+            refresh()
+        finally:
+            self.updating = False
+
+    # -- sidebar ---------------------------------------------------------
+
+    def build_sidebar(self):
+        self.sidebar_pane = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.sidebar_pane.add_css_class("nav-pane")
+
+        self.nav = Gtk.ListBox()
+        self.nav.add_css_class("nav-list")
+        self.nav.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.nav.set_activate_on_single_click(True)
+
+        sections = [
+            ("appearance", "Appearance", "preferences-desktop-symbolic"),
+            ("workstation", "Workstation", "preferences-system-symbolic"),
+            ("displays", "Displays", "video-display-symbolic"),
+            ("network", "Network and Bluetooth", "network-wireless-symbolic"),
+            ("audio", "Audio", "audio-volume-high-symbolic"),
+            ("system", "System and Snapshots", "utilities-system-monitor-symbolic"),
+        ]
+
+        for name, title, icon_name in sections:
+            row = Gtk.ListBoxRow()
+            row.page_name = name
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            image = Gtk.Image.new_from_icon_name(icon_name)
+            image.set_pixel_size(16)
+            label = Gtk.Label(label=title, xalign=0)
+            box.append(image)
+            box.append(label)
+            row.set_child(box)
+            self.nav.append(row)
+
+        self.nav.connect("row-selected", self.on_section_selected)
+        self.sidebar_pane.append(self.nav)
+
+    def on_section_selected(self, _listbox, row):
+        if row is None:
+            return
+        self.stack.set_visible_child_name(row.page_name)
+        refresher = self.refreshers.get(row.page_name)
+        if refresher:
+            refresher()
+
+    # -- pages -----------------------------------------------------------
+
+    def build_pages(self):
+        self.build_appearance()
+        self.build_workstation()
+        self.build_displays()
+        self.build_network()
+        self.build_audio()
+        self.build_system()
+
+        self.nav.select_row(self.nav.get_row_at_index(0))
+
+    def build_appearance(self):
+        page = self.page("appearance")
+        config = read_config()
+
+        wall_panel = self.panel(
+            page,
+            "Wallpaper",
+            "Packaged 3840x2160 wallpapers plus anything added to "
+            "~/Pictures/Wallpapers. Choosing one calls flr-wall set and updates "
+            "the lock screen.",
+        )
+        self.wall_buttons = {}
+
+        flow = Gtk.FlowBox()
+        flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        flow.set_homogeneous(True)
+        flow.set_column_spacing(8)
+        flow.set_row_spacing(8)
+        flow.set_max_children_per_line(3)
+        flow.set_margin_top(6)
+
+        selected_wall = current_wallpaper()
+        for path in wallpaper_files():
+            button = Gtk.Button()
+            button.add_css_class("wall-button")
+            button.set_tooltip_text(str(path))
+            inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            try:
+                # Thumbnails are scaled down first: a 4K paintable would report
+                # its full width as the natural size and force one tile per row.
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    str(path), 168, 94, True
+                )
+                picture = Gtk.Picture(paintable=Gdk.Texture.new_for_pixbuf(pixbuf))
+                picture.set_content_fit(Gtk.ContentFit.COVER)
+                picture.set_size_request(168, 94)
+                picture.set_can_shrink(True)
+                inner.append(picture)
+            except GLib.Error:
+                placeholder = Gtk.Label(label="preview unavailable")
+                placeholder.set_size_request(168, 94)
+                placeholder.add_css_class("wall-name")
+                inner.append(placeholder)
+            name = Gtk.Label(label=path.name, xalign=0)
+            name.add_css_class("wall-name")
+            inner.append(name)
+            button.set_child(inner)
+            button.connect("clicked", lambda _b, target=path: self.apply_wallpaper(target))
+            flow.append(button)
+            self.wall_buttons[path] = button
+
+        if not self.wall_buttons:
+            empty = Gtk.Label(
+                label="No wallpapers found in the system or user directory.", xalign=0
+            )
+            empty.add_css_class("row-sub")
+            wall_panel.append(empty)
+        else:
+            wall_panel.append(flow)
+
+        self.wall_value = self.value_label(selected_wall.name)
+        status_box = self.row(wall_panel, "Current wallpaper", str(selected_wall))
+        status_box.append(self.wall_value)
+        self.mark_selected_wallpaper(selected_wall)
+
+        shader_panel = self.panel(
+            page,
+            "Display shader",
+            "A full-screen post-processing pass. Night is a warm low-blue-light "
+            "curve; mono is grayscale.",
+        )
+        shader_row = self.row(
+            shader_panel, "Shader", "Applied through decoration:screen_shader."
+        )
+        shader_row.append(self.dropdown(SHADERS, current_shader(), self.apply_shader))
+
+        geometry = self.panel(
+            page,
+            "Window geometry",
+            "Written to ~/.config/fluorine/config.lua and applied with "
+            "flr-config apply.",
+        )
+        gap_row = self.row(
+            geometry,
+            "Window gaps",
+            "Inner and outer gaps between tiled windows and the screen edge.",
+        )
+        self.gap_value = self.value_label(f"{config['gaps_in']}px")
+        self.gap_scale = self.slider(
+            0, 16, 1, config["gaps_in"], self.on_gap_changed
+        )
+        gap_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        gap_box.append(self.gap_scale)
+        gap_box.append(self.gap_value)
+        gap_row.append(gap_box)
+
+        border_row = self.row(
+            geometry,
+            "Border width",
+            "Hyprland draws integer borders, so 1.5px is rendered as 2px.",
+        )
+        border_row.append(
+            self.dropdown(BORDER_LABELS, self.current_border_label(config), self.apply_border)
+        )
+
+        config_note = Gtk.Label(label=str(CONFIG_FILE), xalign=0, selectable=True)
+        config_note.add_css_class("panel-note")
+        geometry.append(config_note)
+
+        self.refreshers["appearance"] = self.refresh_appearance
+
+    def current_border_label(self, config):
+        for index, value in enumerate(BORDER_VALUES):
+            if abs(float(config["border_size"]) - value) < 0.01:
+                return BORDER_LABELS[index]
+        return BORDER_LABELS[-1]
+
+    def refresh_appearance(self):
+        def refresh():
+            path = current_wallpaper()
+            self.wall_value.set_text(path.name)
+            self.mark_selected_wallpaper(path)
+            config = read_config()
+            if abs(self.gap_scale.get_value() - config["gaps_in"]) > 0.01:
+                self.gap_scale.set_value(config["gaps_in"])
+                self.gap_value.set_text(f"{config['gaps_in']}px")
+
+        self.guarded(refresh)
+
+    def mark_selected_wallpaper(self, path):
+        for candidate, button in self.wall_buttons.items():
+            if candidate == path:
+                button.add_css_class("selected")
+            else:
+                button.remove_css_class("selected")
+
+    def apply_wallpaper(self, path):
+        result = run(["flr-wall", "set", str(path)])
+        if result is None or result.returncode != 0:
+            self.toast("flr-wall could not apply that wallpaper")
+            return
+        self.mark_selected_wallpaper(path)
+        self.wall_value.set_text(path.name)
+        self.toast(f"Wallpaper set to {path.name}")
+
+    def apply_shader(self, name):
+        result = run(["flr-shader", name])
+        if result is None or result.returncode != 0:
+            self.toast("flr-shader is not available")
+            return
+        self.toast(f"Shader set to {name}")
+
+    def on_gap_changed(self, value):
+        pixels = int(round(value))
+        self.gap_value.set_text(f"{pixels}px")
+        if getattr(self, "_gap_timeout", None):
+            GLib.source_remove(self._gap_timeout)
+        self._gap_timeout = GLib.timeout_add(180, self.commit_gaps, pixels)
+
+    def commit_gaps(self, pixels):
+        self._gap_timeout = None
+        run(["flr-config", "set", "gaps_in", str(pixels)])
+        run(["flr-config", "set", "gaps_out", str(pixels)])
+        return False
+
+    def apply_border(self, label):
+        value = BORDER_VALUES[BORDER_LABELS.index(label)]
+        result = run(["flr-config", "set", "border_size", f"{value:g}"])
+        if result is None or result.returncode != 0:
+            self.toast("flr-config is not available")
+            return
+        self.toast(f"Border width set to {label}")
+
+    def build_workstation(self):
+        page = self.page("workstation")
+        config = read_config()
+
+        mode_panel = self.panel(
+            page,
+            "Workstation mode",
+            "Work keeps gaps and the bar, Focus removes gaps and hides the bar, "
+            "Present widens gaps and disables idle locking.",
+        )
+        mode_row = self.row(mode_panel, "Active profile", "Applied through flr-mode.")
+        modes = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        modes.add_css_class("linked")
+        self.mode_buttons = {}
+        anchor = None
+        for name in MODES:
+            button = Gtk.ToggleButton(label=name.capitalize())
+            button.add_css_class("mode")
+            if anchor is None:
+                anchor = button
+            else:
+                button.set_group(anchor)
+            button.connect("clicked", lambda _b, target=name: self.apply_mode(target))
+            modes.append(button)
+            self.mode_buttons[name] = button
+        mode_row.append(modes)
+
+        idle_panel = self.panel(
+            page,
+            "Idle lock",
+            "Written to config.lua and applied to the hyprlock listener in "
+            "~/.config/hypr/hypridle.conf.",
+        )
+        idle_row = self.row(
+            idle_panel, "Lock after", "Present mode stops idle locking on its own."
+        )
+        idle_row.append(
+            self.dropdown(IDLE_LABELS, self.current_idle_label(config), self.apply_idle)
+        )
+
+        onboard_panel = self.panel(
+            page,
+            "First login",
+            "The first interactive login can show the keybinding cheat sheet once.",
+        )
+        onboard_row = self.row(onboard_panel, "Show cheat sheet on the next login")
+        onboard_row.append(self.switch(self.cheatsheet_enabled(), self.apply_cheatsheet))
+
+        self.refreshers["workstation"] = lambda: self.guarded(self.sync_mode_buttons)
+        self.guarded(self.sync_mode_buttons)
+
+    def current_idle_label(self, config):
+        for index, seconds in enumerate(IDLE_SECONDS):
+            if config["idle_lock"] == seconds:
+                return IDLE_LABELS[index]
+        return IDLE_LABELS[-1]
+
+    def sync_mode_buttons(self):
+        label = output(["flr-mode", "status"]).lower()
+        active = label if label in self.mode_buttons else "work"
+        for name, button in self.mode_buttons.items():
+            button.set_active(name == active)
+
+    def apply_mode(self, name):
+        result = run(["flr-mode", name])
+        if result is None or result.returncode != 0:
+            self.toast("flr-mode is not available")
+            return
+        for candidate, button in self.mode_buttons.items():
+            button.set_active(candidate == name)
+        self.toast(f"Mode set to {name}")
+
+    def apply_idle(self, label):
+        seconds = IDLE_SECONDS[IDLE_LABELS.index(label)]
+        result = run(["flr-config", "set", "idle_lock", str(seconds)])
+        if result is None or result.returncode != 0:
+            self.toast("flr-config is not available")
+            return
+        if seconds == 0:
+            self.toast("Idle locking disabled")
+        else:
+            self.toast(f"Idle lock after {label}")
+
+    def cheatsheet_enabled(self):
+        return not ONBOARD_MARKER.exists()
+
+    def apply_cheatsheet(self, enabled):
+        try:
+            STATE_DIR.mkdir(parents=True, exist_ok=True)
+            if enabled:
+                ONBOARD_MARKER.unlink(missing_ok=True)
+                self.toast("Cheat sheet will show on the next login")
+            else:
+                ONBOARD_MARKER.write_text("", encoding="utf-8")
+                self.toast("Cheat sheet disabled for later logins")
+        except OSError as error:
+            self.toast(f"Could not update the marker: {error}")
+
+    def build_displays(self):
+        page = self.page("displays")
+
+        summary = self.panel(page, "Monitors", "Read live from hyprctl monitors.")
+        self.monitor_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        summary.append(self.monitor_box)
+
+        scale_panel = self.panel(
+            page,
+            "Scale",
+            "Applies to every connected output through hyprctl keyword monitor.",
+        )
+        scale_row = self.row(
+            scale_panel, "Output scale", "1.0 matches the pixel grid exactly."
+        )
+        self.scale_dropdown = self.dropdown(
+            tuple(f"{value:g}" for value in SCALE_VALUES), "1", self.apply_scale
+        )
+        scale_row.append(self.scale_dropdown)
+
+        layout_panel = self.panel(
+            page,
+            "Layout",
+            "wdisplays arranges multiple monitors interactively. kanshi restores "
+            "the saved layout when outputs change.",
+        )
+        self.action_row(layout_panel, [("Open wdisplays", self.open_displays, True)])
+
+        self.refreshers["displays"] = self.refresh_displays
+        self.refresh_displays()
+
+    def refresh_displays(self):
+        while True:
+            child = self.monitor_box.get_first_child()
+            if child is None:
+                break
+            self.monitor_box.remove(child)
+
+        entries = monitors()
+        if not entries:
+            label = Gtk.Label(
+                label="Hyprland is not running, so no monitors are reported.", xalign=0
+            )
+            label.add_css_class("row-sub")
+            self.monitor_box.append(label)
+            return
+
+        for entry in entries:
+            name = entry.get("name", "unknown")
+            width = entry.get("width", 0)
+            height = entry.get("height", 0)
+            refresh = entry.get("refreshRate", 0)
+            scale = entry.get("scale", 1.0)
+            description = entry.get("description") or entry.get("model") or ""
+            detail = f"{width}x{height} at {float(refresh):.2f} Hz, scale {float(scale):g}"
+            if description:
+                detail = f"{description} - {detail}"
+            row = self.row(self.monitor_box, name, detail)
+            if entry.get("focused"):
+                row.append(self.value_label("focused"))
+            current = f"{float(scale):g}"
+            if current in [f"{value:g}" for value in SCALE_VALUES]:
+                self.scale_dropdown.set_selected(
+                    [f"{value:g}" for value in SCALE_VALUES].index(current)
+                )
+
+    def apply_scale(self, label):
+        try:
+            scale = float(label)
+        except ValueError:
+            return
+        entries = monitors()
+        if not entries:
+            self.toast("Hyprland is not running")
+            return
+        for entry in entries:
+            name = entry.get("name")
+            if name:
+                run(["hyprctl", "keyword", "monitor", f"{name},preferred,auto,{scale:g}"])
+        self.toast(f"Scale set to {label}")
+        self.refresh_displays()
+
+    def open_displays(self):
+        if not available("wdisplays"):
+            self.toast("wdisplays is not installed")
+            return
+        launch_float("wdisplays", 900, 560)
+
+    def build_network(self):
+        page = self.page("network")
+
+        network_panel = self.panel(page, "Network", "Read from NetworkManager.")
+        self.network_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        network_panel.append(self.network_box)
+        self.action_row(
+            network_panel,
+            [
+                ("Open nmtui", self.open_nmtui, True),
+                ("Refresh", self.refresh_network, False),
+            ],
+        )
+
+        bluetooth_panel = self.panel(page, "Bluetooth", "Read from bluetoothctl.")
+        self.bluetooth_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        bluetooth_panel.append(self.bluetooth_box)
+        self.action_row(
+            bluetooth_panel, [("Open Bluetooth Manager", self.open_bluetooth, True)]
+        )
+
+        power_panel = self.panel(
+            page, "Power profile", "Applied through power-profiles-daemon."
+        )
+        power_row = self.row(power_panel, "Profile", "Shown in the Waybar badge.")
+        self.power_dropdown = self.dropdown(
+            POWER_PROFILES, self.current_power_profile(), self.apply_power_profile
+        )
+        power_row.append(self.power_dropdown)
+
+        self.refreshers["network"] = self.refresh_network
+        self.refresh_network()
+
+    def current_power_profile(self):
+        name = output(["powerprofilesctl", "get"])
+        return name if name in POWER_PROFILES else "balanced"
+
+    def refresh_network(self):
+        def refresh():
+            for box in (self.network_box, self.bluetooth_box):
+                while True:
+                    child = box.get_first_child()
+                    if child is None:
+                        break
+                    box.remove(child)
+
+            devices = []
+            if available("nmcli"):
+                text = output(
+                    ["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device", "status"]
+                )
+                for line in text.splitlines():
+                    parts = line.split(":")
+                    if len(parts) >= 3:
+                        devices.append((f"{parts[0]} ({parts[1]})", parts[2]))
+
+            if devices:
+                for name, state in devices:
+                    self.row(self.network_box, name, state)
+            else:
+                label = Gtk.Label(label="NetworkManager reports no devices.", xalign=0)
+                label.add_css_class("row-sub")
+                self.network_box.append(label)
+
+            powered = "unknown"
+            discovering = "no"
+            if available("bluetoothctl"):
+                text = output(["bluetoothctl", "show"], timeout=4)
+                for line in text.splitlines():
+                    stripped = line.strip()
+                    if stripped.startswith("Powered:"):
+                        powered = stripped.split(":", 1)[1].strip()
+                    elif stripped.startswith("Discovering:"):
+                        discovering = stripped.split(":", 1)[1].strip()
+            row = self.row(
+                self.bluetooth_box,
+                "Adapter",
+                f"powered {powered}, discovering {discovering}",
+            )
+
+            connected = ""
+            if available("bluetoothctl"):
+                connected = output(["bluetoothctl", "devices", "Connected"], timeout=4)
+            count = len([line for line in connected.splitlines() if line.strip()])
+            row.append(self.value_label(f"{count} connected"))
+
+            profile = self.current_power_profile()
+            self.power_dropdown.set_selected(POWER_PROFILES.index(profile))
+
+        self.guarded(refresh)
+
+    def open_nmtui(self):
+        if not available("nmtui"):
+            self.toast("nmtui is not installed")
+            return
+        launch_terminal("nmtui")
+
+    def open_bluetooth(self):
+        if available("bluetui"):
+            launch_terminal("bluetui")
+            return
+        if available("blueman-manager"):
+            launch_float("blueman-manager", 900, 620)
+            return
+        if available("bluetoothctl"):
+            launch_terminal("bluetoothctl")
+            return
+        self.toast("No Bluetooth manager is installed")
+
+    def apply_power_profile(self, name):
+        result = run(["powerprofilesctl", "set", name])
+        if result is None or result.returncode != 0:
+            self.toast("Could not set the power profile")
+            return
+        self.toast(f"Power profile set to {name}")
+
+    def build_audio(self):
+        page = self.page("audio")
+
+        output_panel = self.panel(
+            page, "Output", "Default sink volume and mute, read and written with wpctl."
+        )
+        self.output_row = self.row(output_panel, "Volume", "Default audio sink.")
+        self.output_scale = self.slider(0, 100, 1, 50, self.on_output_volume)
+        self.output_value = self.value_label("50%")
+        volume_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        volume_box.append(self.output_scale)
+        volume_box.append(self.output_value)
+        self.output_row.append(volume_box)
+
+        mute_row = self.row(output_panel, "Mute output")
+        self.output_mute = self.switch(False, self.on_output_mute)
+        mute_row.append(self.output_mute)
+
+        input_panel = self.panel(
+            page, "Input", "Default source volume and mute, read and written with wpctl."
+        )
+        self.input_row = self.row(input_panel, "Volume", "Default audio source.")
+        self.input_scale = self.slider(0, 100, 1, 50, self.on_input_volume)
+        self.input_value = self.value_label("50%")
+        input_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        input_box.append(self.input_scale)
+        input_box.append(self.input_value)
+        self.input_row.append(input_box)
+
+        mute_in_row = self.row(input_panel, "Mute input")
+        self.input_mute = self.switch(False, self.on_input_mute)
+        mute_in_row.append(self.input_mute)
+
+        if not available("wpctl"):
+            label = Gtk.Label(
+                label="wpctl was not found; install wireplumber.", xalign=0
+            )
+            label.add_css_class("row-sub")
+            output_panel.append(label)
+
+        self.refreshers["audio"] = self.refresh_audio
+        self.refresh_audio()
+
+    def audio_state(self, kind):
+        if not available("wpctl"):
+            return 0, False
+        text = output(["wpctl", "get-volume", f"@DEFAULT_AUDIO_{kind}@"])
+        muted = "[MUTED]" in text
+        for token in text.replace("[MUTED]", "").split():
+            try:
+                return int(round(float(token) * 100)), muted
+            except ValueError:
+                continue
+        return 0, muted
+
+    def refresh_audio(self):
+        def refresh():
+            volume, muted = self.audio_state("SINK")
+            self.output_scale.set_value(volume)
+            self.output_value.set_text(f"{volume}%")
+            self.output_mute.set_active(muted)
+
+            volume, muted = self.audio_state("SOURCE")
+            self.input_scale.set_value(volume)
+            self.input_value.set_text(f"{volume}%")
+            self.input_mute.set_active(muted)
+
+        self.guarded(refresh)
+
+    def on_output_volume(self, value):
+        percent = int(round(value))
+        self.output_value.set_text(f"{percent}%")
+        if getattr(self, "_output_timeout", None):
+            GLib.source_remove(self._output_timeout)
+        self._output_timeout = GLib.timeout_add(
+            150, lambda: self.commit_volume("@DEFAULT_AUDIO_SINK@", percent)
+        )
+
+    def commit_volume(self, target, percent):
+        self._output_timeout = None
+        run(["wpctl", "set-volume", "-l", "1.5", target, f"{percent}%"])
+        return False
+
+    def on_input_volume(self, value):
+        percent = int(round(value))
+        self.input_value.set_text(f"{percent}%")
+        if getattr(self, "_input_timeout", None):
+            GLib.source_remove(self._input_timeout)
+        self._input_timeout = GLib.timeout_add(
+            150, lambda: self.commit_volume("@DEFAULT_AUDIO_SOURCE@", percent)
+        )
+
+    def on_output_mute(self, muted):
+        run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "1" if muted else "0"])
+
+    def on_input_mute(self, muted):
+        run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "1" if muted else "0"])
+
+    def build_system(self):
+        page = self.page("system")
+
+        summary = self.panel(page, "System", "Read-only summary of the running system.")
+        self.system_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        summary.append(self.system_box)
+
+        snapshot_panel = self.panel(
+            page,
+            "Snapshots",
+            "Btrfs snapshots through snapper; flr-snapshot may ask for your password.",
+        )
+        buffer = Gtk.TextBuffer()
+        view = Gtk.TextView(buffer=buffer)
+        view.set_editable(False)
+        view.set_cursor_visible(False)
+        view.set_monospace(True)
+        view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        view.set_top_margin(8)
+        view.set_bottom_margin(8)
+        view.set_left_margin(8)
+        view.set_right_margin(8)
+
+        frame = Gtk.ScrolledWindow()
+        frame.add_css_class("view-frame")
+        frame.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        frame.set_min_content_height(120)
+        frame.set_max_content_height(180)
+        frame.set_child(view)
+        snapshot_panel.append(frame)
+        self.snapshot_buffer = buffer
+        self.snapshot_buffer.set_text("Reading the snapshot list...")
+
+        self.action_row(
+            snapshot_panel,
+            [
+                ("Create Snapshot", self.create_snapshot, True),
+                ("Run System Update", self.run_update, False),
+                ("Run Diagnostics", self.run_diagnostics, False),
+                ("Refresh list", self.load_snapshots, False),
+            ],
+        )
+
+        self.refreshers["system"] = self.refresh_system
+        self.refresh_system()
+        self.load_snapshots()
+
+    def refresh_system(self):
+        while True:
+            child = self.system_box.get_first_child()
+            if child is None:
+                break
+            self.system_box.remove(child)
+
+        entries = [
+            ("Distribution", os_release("PRETTY_NAME")),
+            ("Kernel", os.uname().release),
+            ("GPU driver", gpu_driver()),
+            ("Memory", memory_summary()),
+            ("ZRAM", zram_summary()),
+        ]
+
+        for title, value in entries:
+            row = self.row(self.system_box, title)
+            row.append(self.value_label(value))
+
+    def load_snapshots(self):
+        self.snapshot_buffer.set_text("Reading the snapshot list...")
+
+        def work():
+            result = run(["flr-snapshot", "list"], timeout=20)
+            if result is None:
+                text = "flr-snapshot is not installed."
+            else:
+                text = ((result.stdout or "") + (result.stderr or "")).strip()
+                if not text:
+                    text = "No snapshots were reported."
+            GLib.idle_add(self.snapshot_buffer.set_text, text)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def create_snapshot(self):
+        launch_terminal("flr-snapshot create manual", hold=True)
+        self.toast("Snapshot command opened in a terminal")
+
+    def run_update(self):
+        launch_terminal("flr-update", hold=True, width=1100, height=720)
+        self.toast("System update opened in a terminal")
+
+    def run_diagnostics(self):
+        launch_terminal("flr-doctor", hold=True, width=1100, height=720)
+        self.toast("Diagnostics opened in a terminal")
+
+
+class SettingsApp(Adw.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID)
+
+    def do_activate(self):
+        Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
+
+        window = self.get_active_window()
+        if window is None:
+            window = SettingsWindow(application=self)
+        window.present()
+
+
+def main(argv):
+    return SettingsApp().run(argv)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

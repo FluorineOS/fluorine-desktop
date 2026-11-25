@@ -26,6 +26,10 @@
 | `/etc/skel/.config/kanshi/config` | Display profiles applied on output hotplug |
 | `/usr/share/fluorineos/shaders/night.glsl` | Warm low-blue-light display shader |
 | `/usr/share/fluorineos/shaders/mono.glsl` | Grayscale focus-mode display shader |
+| `/usr/bin/flr-settings` | Native GTK4 and libadwaita settings panel |
+| `/usr/bin/flr-config` | Apply the geometry and idle state in `~/.config/fluorine/config.lua` |
+| `/etc/skel/.config/fluorine/config.lua` | Editable gaps, border width, and idle lock timeout |
+| `/usr/share/applications/fluorine-settings.desktop` | Desktop entry for Fuzzel and application menus |
 | `/usr/bin/flr-shader` | Display shader cycle, picker, and restore |
 | `/usr/bin/flr-wall` | Wallpaper picker, next, set, and restore |
 | `/usr/bin/flr-shot` | Interactive area screenshot |
@@ -114,6 +118,25 @@ session comes back on the same wallpaper instead of a bare color, and every swit
 the `path` line of the `background` block in `~/.config/hypr/hyprlock.conf` so the lock
 screen follows the desktop. `flr-wall set <path>` and `flr-wall next` cover scripted use.
 When `fluorine-artwork` is absent the switcher falls back to `swaybg -c '#000000'`.
+
+`flr-settings` is the graphical counterpart to these commands: a native GTK4 and
+libadwaita window with a navigation sidebar and six sections. Appearance holds the wallpaper
+grid, the display shader, and the window geometry; Workstation switches the profile, the
+idle lock timeout, and the first-login cheat sheet; Displays reads `hyprctl monitors` and
+applies a scale; Network and Bluetooth report live state and launch `nmtui`, `bluetui`, or
+`blueman-manager` in floating windows; Audio drives the default sink and source through
+`wpctl`; System and Snapshots shows the OS and hardware summary with the snapshot list.
+Nothing is reimplemented: every control calls the same `flr-*` command the keyboard
+workflow uses. `SUPER + comma` opens the panel, it is the first entry in `flr-ctl`, and
+Hyprland floats it at 880x600 in the centre of the screen.
+
+`flr-config` owns `~/.config/fluorine/config.lua`, a short key = value file holding
+`gaps_in`, `gaps_out`, `border_size`, and `idle_lock`. `flr-config apply` pushes the gaps and
+border width to Hyprland and rewrites the hyprlock listener timeout in
+`~/.config/hypr/hypridle.conf`, restarting `hypridle` when the value changed. A timeout of 0
+clears that listener's `on-timeout`, which is how hypridle disables it. The Hyprland start
+hook applies the file at login, so window geometry and the idle timeout survive a restart.
+Hyprland only draws integer borders, so the 1.5px choice is rendered as 2px.
 
 `flr-shader` drives Hyprland's `decoration:screen_shader` and keeps the three
 states honest: `off` loads no shader at all and stays color-accurate, `night` runs a warm

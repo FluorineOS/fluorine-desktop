@@ -12,7 +12,8 @@ Depends: hyprland, hypridle, hyprlock, waybar, kitty, fuzzel,
  sway-notification-center, swaybg, grim, slurp, wl-clipboard, cliphist,
  brightnessctl, wireplumber, jq, libnotify-bin, network-manager, bluez,
  blueman, power-profiles-daemon, kanshi, wdisplays, pulsemixer, pavucontrol,
- btrfs-progs, snapper, podman, distrobox
+ btrfs-progs, snapper, podman, distrobox,
+ python3, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1
 Recommends: fluorine-artwork
 Description: FluorineOS AMOLED Hyprland desktop environment
  FluorineOS desktop configuration for Hyprland 0.55 and later, built on a
@@ -49,6 +50,16 @@ Description: FluorineOS AMOLED Hyprland desktop environment
  flr-wall switches the desktop wallpaper from the shipped 4K set or from
  ~/Pictures/Wallpapers, remembers the choice across logins, and keeps the
  hyprlock lock screen background in step with it.
+ .
+ flr-settings is a native GTK4 and libadwaita control panel with a two-pane
+ navigation layout. It covers wallpapers, the display shader, window gaps and
+ border width, the workstation profile, the idle lock timeout, the first-login
+ cheat sheet, live monitor state and scale, network and Bluetooth status with
+ direct launchers, power profiles, default sink and source volume, and the
+ OS, memory, ZRAM, and Btrfs snapshot summary. Every control delegates to the
+ matching flr-* command, so the panel and the keyboard workflow share one
+ state. flr-config owns the editable state in ~/.config/fluorine/config.lua
+ and applies it to Hyprland and hypridle.
  .
  Configuration is installed into /etc/skel/.config so that newly created
  users receive the FluorineOS desktop on first login. The first interactive

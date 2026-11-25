@@ -1,3 +1,24 @@
+fluorine-desktop (0.9.0) trixie; urgency=medium
+
+  * Add flr-settings, a native GTK4 and libadwaita control panel with a
+    two-pane navigation layout and six sections: Appearance, Workstation,
+    Displays, Network and Bluetooth, Audio, and System and Snapshots.
+  * Every control delegates to an existing flr-* command, so the panel and the
+    keyboard workflow read and write the same state: flr-wall for wallpapers,
+    flr-shader for the display shader, flr-mode for the workstation profile,
+    flr-snapshot for the snapshot list, and wpctl for default sink and source
+    volume.
+  * Add flr-config, which keeps the editable geometry and idle state in
+    ~/.config/fluorine/config.lua and applies it to the Hyprland gaps and
+    border width plus the hyprlock listener in hypridle.conf.
+  * Ship a desktop entry so the panel appears in Fuzzel, bind SUPER + comma to
+    flr-settings, add Settings as the first flr-ctl entry, and open the panel
+    as an 880x600 centred floating window.
+  * Apply config.lua at session start so the saved geometry and idle timeout
+    survive a restart.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Wed, 25 Nov 2026 08:05:00 +0530
+
 fluorine-desktop (0.8.0) trixie; urgency=medium
 
   * Add flr-wall, a wallpaper switcher that lists the shipped 4K set in

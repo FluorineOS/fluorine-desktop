@@ -6,9 +6,10 @@ readonly prompt="System > "
 
 usage() {
     printf 'Usage: %s\n\n' "${program}"
-    printf 'Open the FluorineOS system menu in Fuzzel. Network, Bluetooth, display\n'
-    printf 'layout, audio, display shader, power, snapshots, workstation mode,\n'
-    printf 'diagnostics, and session actions are reachable from the keyboard alone.\n'
+    printf 'Open the FluorineOS system menu in Fuzzel. The graphical settings\n'
+    printf 'panel, network, Bluetooth, display layout, audio, display shader, power,\n'
+    printf 'snapshots, workstation mode, diagnostics, and session actions are\n'
+    printf 'reachable from the keyboard alone.\n'
 }
 
 die() {
@@ -101,6 +102,7 @@ if profile_label="$(power_profile)"; then
 fi
 
 entries=(
+    "Settings"
     "Network Settings"
     "Bluetooth Devices"
     "Display Layout"
@@ -121,6 +123,9 @@ entries=(
 selection="$(printf '%s\n' "${entries[@]}" | fuzzel --dmenu --prompt "${prompt}" --lines 15 --width 38)" || exit 0
 
 case "${selection}" in
+    "Settings")
+        exec flr-settings
+        ;;
     "Network Settings")
         if command -v flr-tui >/dev/null 2>&1; then
             launch_tui nmtui

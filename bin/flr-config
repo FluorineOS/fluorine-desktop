@@ -1,0 +1,283 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly program="flr-config"
+readonly config_dir="${XDG_CONFIG_HOME:-${HOME}/.config}/fluorine"
+readonly config_file="${config_dir}/config.lua"
+readonly hypridle_conf="${XDG_CONFIG_HOME:-${HOME}/.config}/hypr/hypridle.conf"
+
+readonly default_gaps_in=4
+readonly default_gaps_out=6
+readonly default_border=2
+readonly default_idle=300
+
+gaps_in=${default_gaps_in}
+gaps_out=${default_gaps_out}
+border_size=${default_border}
+idle_lock=${default_idle}
+
+usage() {
+    printf 'Usage: %s [apply|set <key> <value>|status]\n\n' "${program}"
+    printf 'Keep the editable desktop state in ~/.config/fluorine/config.lua and\n'
+    printf 'apply it to Hyprland and hypridle.\n\n'
+    printf 'Commands:\n'
+    printf '  apply             Apply the saved state without changing it.\n'
+    printf '  set <key> <value> Write one value and apply the result.\n'
+    printf '  status            Print the saved state as key = value lines.\n\n'
+    printf 'Keys:\n'
+    printf '  gaps_in     Inner window gap in pixels (0-64).\n'
+    printf '  gaps_out    Outer window gap in pixels (0-64).\n'
+    printf '  border_size Window border width in pixels (1-4).\n'
+    printf '  idle_lock   Idle lock timeout in seconds, 0 disables it.\n'
+}
+
+die() {
+    printf '%s: %s\n' "${program}" "$*" >&2
+    exit 1
+}
+
+note() {
+    printf '%s\n' "$*" >&2
+}
+
+hyprland_active() {
+    [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null 2>&1
+}
+
+is_integer() {
+    [[ "$1" =~ ^-?[0-9]+$ ]]
+}
+
+is_number() {
+    [[ "$1" =~ ^[0-9]+(\.[0-9]+)?$ ]]
+}
+
+load_config() {
+    local key value
+
+    [ -f "${config_file}" ] || return 0
+
+    while IFS= read -r line; do
+        line=${line%%--*}
+        line=$(printf '%s' "${line}" | tr -d '[:space:]')
+        case "${line}" in
+            *=*) ;;
+            *) continue ;;
+        esac
+
+        key=${line%%=*}
+        value=${line#*=}
+
+        case "${key}" in
+            gaps_in) is_integer "${value}" && gaps_in=${value} ;;
+            gaps_out) is_integer "${value}" && gaps_out=${value} ;;
+            border_size) is_number "${value}" && border_size=${value} ;;
+            idle_lock) is_integer "${value}" && idle_lock=${value} ;;
+        esac
+    done <"${config_file}"
+}
+
+write_defaults() {
+    mkdir -p "${config_dir}"
+    cat >"${config_file}" <<EOF
+-- FluorineOS appearance and idle state.
+-- Written by flr-config and by the Appearance and Workstation sections of
+-- flr-settings. Change a value and run flr-config apply.
+
+gaps_in = ${gaps_in}
+gaps_out = ${gaps_out}
+border_size = ${border_size}
+idle_lock = ${idle_lock}
+EOF
+}
+
+write_key() {
+    local key=$1
+    local value=$2
+    local tmp
+
+    mkdir -p "${config_dir}"
+    [ -f "${config_file}" ] || write_defaults
+
+    tmp=$(mktemp "${config_file}.XXXXXX")
+    if ! awk -v k="${key}" -v v="${value}" '
+        BEGIN { found = 0 }
+        $0 ~ "^[[:space:]]*" k "[[:space:]]*=" { print k " = " v; found = 1; next }
+        { print }
+        END { if (!found) print k " = " v }
+    ' "${config_file}" >"${tmp}"; then
+        rm -f "${tmp}"
+        die "could not rewrite ${config_file}"
+    fi
+
+    # Writing through the existing inode keeps the file mode and owner.
+    cat "${tmp}" >"${config_file}"
+    rm -f "${tmp}"
+}
+
+apply_hyprland() {
+    local border
+
+    if ! hyprland_active; then
+        note "${program}: Hyprland is not running; geometry saved for the next session"
+        return 0
+    fi
+
+    # Hyprland only accepts integer borders, so 1.5 is rounded to 2.
+    border=$(awk -v b="${border_size}" 'BEGIN { printf "%d", (b + 0.5) }')
+
+    hyprctl --batch "keyword general:gaps_in ${gaps_in};keyword general:gaps_out ${gaps_out};keyword general:border_size ${border}" >/dev/null
+}
+
+# hypridle reads .conf, not the Lua state file. Only the listener that launches
+# hyprlock is touched: its timeout follows idle_lock. Disabling the lock comments
+# the handler out, and re-enabling restores it, so the setting stays reversible.
+apply_hypridle() {
+    local tmp
+
+    [ -f "${hypridle_conf}" ] || return 0
+    [ -w "${hypridle_conf}" ] || return 0
+
+    tmp=$(mktemp "${hypridle_conf}.XXXXXX")
+    if ! awk -v secs="${idle_lock}" '
+        BEGIN { in_block = 0; n = 0 }
+        {
+            if (!in_block && $0 ~ /^[[:space:]]*listener[[:space:]]*\{/) {
+                in_block = 1
+                n = 0
+                lines[++n] = $0
+                next
+            }
+
+            if (in_block) {
+                lines[++n] = $0
+
+                if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) {
+                    lock = 0
+                    for (i = 1; i <= n; i++) {
+                        if (lines[i] ~ /on-timeout[[:space:]]*=.*hyprlock/) {
+                            lock = 1
+                        }
+                    }
+
+                    for (i = 1; i <= n; i++) {
+                        if (!lock) {
+                            print lines[i]
+                        } else if (lines[i] ~ /^[[:space:]]*timeout[[:space:]]*=/) {
+                            print "    timeout = " secs
+                        } else if (lines[i] ~ /^[[:space:]]*#?[[:space:]]*on-timeout[[:space:]]*=/) {
+                            text = lines[i]
+                            sub(/^[[:space:]]*#[[:space:]]*/, "", text)
+                            sub(/^[[:space:]]*/, "", text)
+                            if (secs == 0) {
+                                print "    # " text
+                            } else {
+                                print "    " text
+                            }
+                        } else {
+                            print lines[i]
+                        }
+                    }
+
+                    in_block = 0
+                }
+                next
+            }
+
+            print
+        }
+    ' "${hypridle_conf}" >"${tmp}"; then
+        rm -f "${tmp}"
+        note "${program}: could not rewrite ${hypridle_conf}"
+        return 0
+    fi
+
+    if cmp -s "${tmp}" "${hypridle_conf}"; then
+        rm -f "${tmp}"
+        return 0
+    fi
+
+    cat "${tmp}" >"${hypridle_conf}"
+    rm -f "${tmp}"
+
+    if command -v systemctl >/dev/null 2>&1 &&
+        systemctl --user is-active --quiet hypridle 2>/dev/null; then
+        systemctl --user restart hypridle >/dev/null 2>&1 ||
+            note "${program}: could not restart hypridle; restart it to apply the timeout"
+    fi
+}
+
+apply_all() {
+    apply_hyprland
+    apply_hypridle
+}
+
+set_key() {
+    local key=$1
+    local value=$2
+
+    case "${key}" in
+        gaps_in | gaps_out)
+            is_integer "${value}" || die "${key} needs an integer pixel value"
+            if [ "${value}" -lt 0 ] || [ "${value}" -gt 64 ]; then
+                die "${key} must be between 0 and 64"
+            fi
+            ;;
+        border_size)
+            is_number "${value}" || die "border_size needs a number"
+            if ! awk -v b="${value}" 'BEGIN { exit (b >= 1 && b <= 4) ? 0 : 1 }'; then
+                die "border_size must be between 1 and 4"
+            fi
+            ;;
+        idle_lock)
+            is_integer "${value}" || die "idle_lock needs an integer number of seconds"
+            if [ "${value}" -lt 0 ] || [ "${value}" -gt 7200 ]; then
+                die "idle_lock must be between 0 and 7200 seconds"
+            fi
+            ;;
+        *)
+            die "unknown key: ${key}"
+            ;;
+    esac
+
+    write_key "${key}" "${value}"
+}
+
+print_status() {
+    printf 'gaps_in = %s\n' "${gaps_in}"
+    printf 'gaps_out = %s\n' "${gaps_out}"
+    printf 'border_size = %s\n' "${border_size}"
+    printf 'idle_lock = %s\n' "${idle_lock}"
+}
+
+main() {
+    load_config
+
+    case "${1:-}" in
+        -h | --help)
+            usage
+            ;;
+        "")
+            usage >&2
+            exit 2
+            ;;
+        apply)
+            apply_all
+            ;;
+        status)
+            print_status
+            ;;
+        set)
+            [ $# -ge 3 ] || die "set needs a key and a value"
+            set_key "$2" "$3"
+            load_config
+            apply_all
+            ;;
+        *)
+            usage >&2
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"
