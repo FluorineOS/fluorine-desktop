@@ -113,7 +113,7 @@ else
     if snapshot_supported; then
         printf '\nCreating a pre-update snapshot\n'
         if ! "${privilege[@]}" flr-snapshot create pre-update; then
-            printf 'Warning: the pre-update snapshot failed; continuing with the upgrade.\n' >&2
+            die "pre-update snapshot failed; no packages were changed"
         fi
     fi
 
