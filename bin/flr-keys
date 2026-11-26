@@ -51,8 +51,24 @@ def mods:
 | @tsv
 '
 
+if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+    die "HYPRLAND_INSTANCE_SIGNATURE is not set; run this from a Hyprland session"
+fi
+
+if ! binds="$(hyprctl binds -j)"; then
+    die "could not read keybinds from Hyprland"
+fi
+
+if ! rows="$(jq -r "${jq_filter}" <<<"${binds}")"; then
+    die "could not format the Hyprland keybinds"
+fi
+
+if [ -z "${rows}" ]; then
+    die "Hyprland reported no keybinds"
+fi
+
 selection=""
-if ! selection="$(hyprctl binds -j | jq -r "${jq_filter}" | fuzzel --dmenu --prompt="${prompt}")"; then
+if ! selection="$(fuzzel --dmenu --prompt="${prompt}" <<<"${rows}")"; then
     exit 0
 fi
 

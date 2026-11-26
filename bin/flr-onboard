@@ -35,8 +35,13 @@ if [[ -e "${marker}" ]]; then
 fi
 
 mkdir -p "${state_dir}"
-: >"${marker}"
 
 if command -v flr-keys >/dev/null 2>&1; then
-    flr-keys || true
+    if ! flr-keys; then
+        printf '%s: the keybinding cheat sheet could not be shown; it will retry on the next login.\n' \
+            "${program}" >&2
+        exit 1
+    fi
 fi
+
+: >"${marker}"
