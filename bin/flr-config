@@ -200,10 +200,29 @@ apply_hypridle() {
     cat "${tmp}" >"${hypridle_conf}"
     rm -f "${tmp}"
 
-    if command -v systemctl >/dev/null 2>&1 &&
-        systemctl --user is-active --quiet hypridle 2>/dev/null; then
-        systemctl --user restart hypridle >/dev/null 2>&1 ||
+    # The session launches hypridle directly, so reload it by replacing the
+    # process. A systemd unit is not involved unless the user manages one.
+    if command -v pgrep >/dev/null 2>&1 && pgrep -x hypridle >/dev/null 2>&1; then
+        if ! pkill -x hypridle 2>/dev/null; then
             note "${program}: could not restart hypridle; restart it to apply the timeout"
+            return 0
+        fi
+
+        for _ in 1 2 3 4 5; do
+            pgrep -x hypridle >/dev/null 2>&1 || break
+            sleep 0.1
+        done
+
+        if command -v setsid >/dev/null 2>&1; then
+            setsid hypridle >/dev/null 2>&1 &
+        else
+            hypridle >/dev/null 2>&1 &
+        fi
+
+        sleep 0.1
+        if ! pgrep -x hypridle >/dev/null 2>&1; then
+            note "${program}: could not start hypridle; the new timeout applies at next login"
+        fi
     fi
 }
 
