@@ -29,6 +29,17 @@ die() {
     exit 1
 }
 
+# Power actions are irreversible for unsaved work, so they get a second,
+# explicit selection instead of firing from the system menu directly.
+confirm() {
+    local label=$1
+    local selection
+
+    selection=$(printf 'Cancel\n%s\n' "${label}" |
+        fuzzel --dmenu --prompt "Confirm > " --lines 2 --width 44) || exit 0
+    [ "${selection}" = "${label}" ] || exit 0
+}
+
 command -v fuzzel >/dev/null 2>&1 || die "fuzzel is required but was not found"
 
 case "${1:-}" in
@@ -230,9 +241,11 @@ case "${selection}" in
         exec systemctl suspend
         ;;
     "Reboot"*)
+        confirm "Restart the computer"
         exec systemctl reboot
         ;;
     "Shut Down"*)
+        confirm "Power off the computer"
         exec systemctl poweroff
         ;;
     *)
