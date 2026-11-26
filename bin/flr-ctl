@@ -209,9 +209,11 @@ case "${selection}" in
         exec flr-wall
         ;;
     "Power Profile"*)
-        result="$(flr-power cycle 2>/dev/null || true)"
-        if [ -n "${result}" ]; then
+        if result="$(flr-power cycle 2>&1)"; then
             notify-send -a "${program}" "Power profile" "${result}" 2>/dev/null || true
+        else
+            notify-send -a "${program}" "Power profile" \
+                "${result:-Could not change the power profile.}" 2>/dev/null || true
         fi
         exit 0
         ;;

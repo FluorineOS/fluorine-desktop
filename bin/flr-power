@@ -96,7 +96,9 @@ main() {
             if powerprofilesctl set "${target}" >/dev/null 2>&1; then
                 printf '%s\n' "$(format_label "${target}")"
             else
-                printf '%s\n' "$(format_label "${profile}")"
+                printf '%s: could not set the power profile to %s\n' \
+                    "${program}" "${target}" >&2
+                exit 1
             fi
             ;;
     esac
