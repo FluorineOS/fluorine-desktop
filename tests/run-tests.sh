@@ -450,10 +450,20 @@ class _Namespace:
         return _Thing
 
 
+class _GLib(_Namespace):
+    @staticmethod
+    def get_user_config_dir():
+        return "/tmp/flr-settings-test/config"
+
+    @staticmethod
+    def get_user_state_dir():
+        return "/tmp/flr-settings-test/state"
+
+
 Adw = _Namespace()
 Gdk = _Namespace()
 GdkPixbuf = _Namespace()
-GLib = _Namespace()
+GLib = _GLib()
 Gtk = _Namespace()
 PY
 
@@ -488,6 +498,81 @@ sync = load("flr_sync", root + "/bin/flr-sync")
 ok, lines = sync.restore_snapshot(confirmed=False)
 assert ok is False
 assert any("--yes" in line for line in lines)
+
+
+class Completed:
+    def __init__(self, returncode, stderr="", stdout=""):
+        self.returncode = returncode
+        self.stderr = stderr
+        self.stdout = stdout
+
+
+settings = load("flr_settings", root + "/bin/flr-settings")
+calls = []
+
+
+def failing_config(command, timeout=5):
+    calls.append(command)
+    if command[0] == "flr-config":
+        return Completed(1, "read-only config")
+    return Completed(0)
+
+
+settings.run = failing_config
+
+
+class DummyWindow:
+    _gap_timeout = None
+
+    def __init__(self):
+        self.messages = []
+
+    def toast(self, message):
+        self.messages.append(message)
+
+    def flash_status(self, message):
+        self.messages.append(message)
+
+    def refresh_displays(self):
+        pass
+
+
+window = DummyWindow()
+settings.SettingsWindow.commit_gaps(window, 7)
+assert any("could not apply the gap size" in item for item in window.messages)
+assert any("read-only config" in item for item in window.messages)
+
+settings.run = lambda command, timeout=5: (
+    calls.append(command),
+    Completed(0),
+)[1]
+window = DummyWindow()
+settings.SettingsWindow.commit_gaps(window, 7)
+assert "Applied to config.lua" in window.messages
+
+settings.monitors = lambda: [{"name": "DP-1"}, {"name": "HDMI-A-1"}]
+
+
+def failing_scale(command, timeout=5):
+    calls.append(command)
+    if command[0] == "hyprctl" and command[-1].startswith("DP-1"):
+        return Completed(1, "rejected")
+    return Completed(0)
+
+
+settings.run = failing_scale
+window = DummyWindow()
+settings.SettingsWindow.apply_scale(window, "1.25")
+assert any("Scale was not applied to DP-1" in item for item in window.messages)
+
+settings.run = lambda command, timeout=5: (
+    calls.append(command),
+    Completed(0),
+)[1]
+window = DummyWindow()
+settings.SettingsWindow.apply_scale(window, "1.25")
+assert any("Scale set to 1.25" in item for item in window.messages)
+
 print("python helper checks passed")
 PY
     ); then
