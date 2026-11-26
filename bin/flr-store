@@ -447,10 +447,9 @@ def apt_installed(package):
 
 
 def flatpak_installed(app_id):
-    text = output(["flatpak", "list", "--app"])
+    text = output(["flatpak", "list", "--app", "--columns=application"])
     for line in text.splitlines():
-        fields = line.split("\t")
-        if fields and fields[0] == app_id:
+        if line.strip() == app_id:
             return True
     return False
 
