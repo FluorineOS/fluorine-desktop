@@ -273,23 +273,48 @@ def btrfs_root_mounted():
     return False
 
 
+def snapshot_command():
+    """Return the argv that creates a pre-restore snapshot, or None."""
+    helper = shutil.which("flr-snapshot")
+    if helper is None:
+        return None
+    if os.geteuid() == 0:
+        return [helper, "create", "flr-sync-pre-restore"]
+    if shutil.which("pkexec") is not None and (
+        os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")
+    ):
+        return ["pkexec", helper, "create", "flr-sync-pre-restore"]
+    if shutil.which("sudo") is not None:
+        return ["sudo", helper, "create", "flr-sync-pre-restore"]
+    return None
+
+
 def pre_restore_snapshot():
-    """Create one Btrfs snapshot before any restore writes files."""
+    """Create one rollback point before any restore writes files."""
     if not btrfs_root_mounted():
-        return True, "no btrfs root; skipped pre-restore snapshot"
-    if not available("snapper"):
-        return False, "snapper not installed on btrfs root; restore aborted"
-    result = run(
-        ["snapper", "create", "--description", "flr-sync-pre-restore"],
-        timeout=120,
-    )
-    if result is None or result.returncode != 0:
-        return False, "pre-restore snapshot failed; restore aborted"
+        try:
+            archive = backup_archive()
+        except OSError as error:
+            return False, "pre-restore archive failed; restore aborted: %s" % error
+        return True, "no btrfs root; saved pre-restore archive %s" % archive
+    command = snapshot_command()
+    if command is None:
+        return False, "no privileged snapshot helper available; restore aborted"
+    result = run(command, timeout=180)
+    if result is None:
+        return False, "pre-restore snapshot could not run; restore aborted"
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        suffix = ": " + detail if detail else ""
+        return False, "pre-restore snapshot failed; restore aborted" + suffix
     return True, "created pre-restore snapshot flr-sync-pre-restore"
 
 
-def restore_snapshot(path=None, dry_run=False, from_git=False):
-    """Return (ok, report lines). Never writes when the pre-check fails."""
+def restore_snapshot(path=None, dry_run=False, from_git=False, confirmed=False):
+    """Return (ok, report lines). Never writes without confirmation."""
+    if not dry_run and not confirmed:
+        return False, ["refusing to restore without confirmation; pass --yes"]
+
     try:
         items = snapshot_items(path, from_git=from_git)
     except (OSError, tarfile.TarError) as error:
@@ -544,7 +569,9 @@ class SyncWindow(Adw.ApplicationWindow):
                 ok, self.result = restore_snapshot(target, dry_run=True)
             elif action == "restore":
                 target = self.preview_target if confirmed else latest_archive()
-                ok, self.result = restore_snapshot(target, dry_run=not confirmed)
+                ok, self.result = restore_snapshot(
+                    target, dry_run=not confirmed, confirmed=confirmed
+                )
             elif action == "status":
                 ok, self.result = status_snapshot(latest_archive())
             elif action == "push":
@@ -611,13 +638,15 @@ def usage():
     print("usage: flr-sync <command> [argument] [options]")
     print("commands:")
     print("  backup [--push]                Write a versioned archive and commit state")
-    print("  restore [latest|ARCHIVE]       Restore a snapshot after a Btrfs pre-check")
+    print("  restore [latest|ARCHIVE] [--yes]")
+    print("                                 Restore after confirmation and a pre-restore check")
     print("  status [latest|ARCHIVE]        Compare local files with a snapshot")
     print("  remote set URL                 Set the Git remote used by backup --push")
     print("  remote show                    Show the configured Git remote")
     print("  gui                            Open the GTK4 companion interface")
     print("options:")
     print("  --dry-run                      Preview conflicts without writing files")
+    print("  --yes                          Confirm a CLI restore (required unless --dry-run)")
     print("  --from-git                     Read state from the local Git checkout")
     print("  --version                      Show the flr-sync version")
     print("  -h, --help                     Show this help")
@@ -654,6 +683,8 @@ def cli(argv):
 
     if command in ("restore", "status"):
         allowed = {"--dry-run", "--from-git"}
+        if command == "restore":
+            allowed.add("--yes")
         unknown = [item for item in rest if item.startswith("--") and item not in allowed]
         positionals = [item for item in rest if not item.startswith("--")]
         if unknown or len(positionals) > 1:
@@ -666,7 +697,14 @@ def cli(argv):
         if target == "latest":
             target = None if from_git else latest_archive()
         if command == "restore":
-            return emit(*restore_snapshot(target, dry_run=dry_run, from_git=from_git))
+            return emit(
+                *restore_snapshot(
+                    target,
+                    dry_run=dry_run,
+                    from_git=from_git,
+                    confirmed="--yes" in rest,
+                )
+            )
         if dry_run:
             usage()
             return 2
