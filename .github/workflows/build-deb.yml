@@ -38,21 +38,39 @@ jobs:
             build-essential \
             debhelper \
             dpkg-dev \
+            python3 \
             shellcheck
 
-      - name: Lint the shell scripts
+      - name: Lint shell scripts and check Python syntax
         run: |
           set -euo pipefail
           shopt -s nullglob
-          scripts=(bin/* debian/postinst debian/preinst debian/prerm debian/postrm)
+          scripts=(bin/* tests/run-tests.sh debian/postinst debian/preinst debian/prerm debian/postrm)
+          shell_checked=0
+          python_checked=0
           for script in "${scripts[@]}"; do
             [ -f "${script}" ] || continue
-            shellcheck -x "${script}"
-            printf 'shellcheck clean: %s\n' "${script}"
+            first_line="$(head -n 1 "${script}")"
+            case "${first_line}" in
+              *python*)
+                python3 -m py_compile "${script}"
+                python_checked=$((python_checked + 1))
+                ;;
+              *sh*)
+                shellcheck -x "${script}"
+                printf 'shellcheck clean: %s\n' "${script}"
+                shell_checked=$((shell_checked + 1))
+                ;;
+              *)
+                printf 'skipping non-shell file: %s\n' "${script}"
+                ;;
+            esac
           done
-          if [ "${#scripts[@]}" -eq 0 ]; then
-            printf 'no shell scripts to lint\n'
-          fi
+          printf 'checked %d shell scripts and %d Python scripts\n' \
+            "${shell_checked}" "${python_checked}"
+
+      - name: Run the regression tests
+        run: bash tests/run-tests.sh
 
       - name: Build the package
         run: dpkg-buildpackage -us -uc -b
