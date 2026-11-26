@@ -16,7 +16,8 @@ Depends: hyprland, hypridle, hyprlock, waybar, kitty, fuzzel,
  thunar, thunar-volman, thunar-archive-plugin, tumbler, gvfs, gvfs-backends,
  file-roller, unzip, zip, xz-utils, swayimg, zathura, zathura-pdf-poppler,
  mousepad, galculator, btop, xdg-user-dirs,
- python3, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, flatpak, git, pkexec
+ python3, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, flatpak, git,
+ pkexec, polkitd, lxpolkit, sudo
 Recommends: fluorine-artwork
 Description: FluorineOS AMOLED Hyprland desktop environment
  FluorineOS desktop configuration for Hyprland 0.55 and later, built on a
