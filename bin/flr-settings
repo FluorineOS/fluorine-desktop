@@ -901,8 +901,27 @@ class SettingsWindow(Adw.ApplicationWindow):
 
     def commit_gaps(self, pixels):
         self._gap_timeout = None
-        run(["flr-config", "set", "gaps_in", str(pixels)])
-        run(["flr-config", "set", "gaps_out", str(pixels)])
+        results = [
+            run(["flr-config", "set", "gaps_in", str(pixels)]),
+            run(["flr-config", "set", "gaps_out", str(pixels)]),
+        ]
+        failed = [
+            result
+            for result in results
+            if result is None or result.returncode != 0
+        ]
+        if failed:
+            details = [
+                ((result.stderr or "") + (result.stdout or "")).strip()
+                for result in failed
+                if result is not None
+            ]
+            detail = next((item for item in details if item), "")
+            message = "flr-config could not apply the gap size"
+            if detail:
+                message = f"{message}: {detail}"
+            self.toast(message)
+            return False
         self.flash_status("Applied to config.lua")
         return False
 
@@ -1092,12 +1111,20 @@ class SettingsWindow(Adw.ApplicationWindow):
         if not entries:
             self.toast("Hyprland is not running")
             return
+        failed = []
         for entry in entries:
             name = entry.get("name")
             if name:
-                run(["hyprctl", "keyword", "monitor", f"{name},preferred,auto,{scale:g}"])
-        self.toast(f"Scale set to {label}")
+                result = run(
+                    ["hyprctl", "keyword", "monitor", f"{name},preferred,auto,{scale:g}"]
+                )
+                if result is None or result.returncode != 0:
+                    failed.append(name)
         self.refresh_displays()
+        if failed:
+            self.toast(f"Scale was not applied to {', '.join(failed)}")
+            return
+        self.toast(f"Scale set to {label}")
 
     def open_displays(self):
         if not available("wdisplays"):
@@ -1414,13 +1441,22 @@ class SettingsWindow(Adw.ApplicationWindow):
         self.snapshot_buffer.set_text("Reading the snapshot list...")
 
         def work():
-            result = run(["flr-snapshot", "list"], timeout=20)
-            if result is None:
+            if not available("flr-snapshot"):
                 text = "flr-snapshot is not installed."
             else:
-                text = ((result.stdout or "") + (result.stderr or "")).strip()
-                if not text:
-                    text = "No snapshots were reported."
+                command = ["flr-snapshot", "list"]
+                if os.geteuid() != 0 and available("pkexec"):
+                    command = ["pkexec", *command]
+                result = run(command, timeout=120)
+                if result is None:
+                    text = "The snapshot list could not be read; try again from a terminal."
+                else:
+                    text = ((result.stdout or "") + (result.stderr or "")).strip()
+                    if not text:
+                        if result.returncode != 0:
+                            text = "The snapshot list could not be read; administrator authentication may have failed."
+                        else:
+                            text = "No snapshots were reported."
             GLib.idle_add(self.snapshot_buffer.set_text, text)
 
         threading.Thread(target=work, daemon=True).start()
