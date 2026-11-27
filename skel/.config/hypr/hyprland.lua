@@ -40,23 +40,18 @@ hl.config({
     },
 
     decoration = {
-        -- 4px geometry. Enough to read as intentional on a dark wallpaper,
-        -- small enough that the hard-edged AMOLED surface language survives.
-        rounding         = 4,
+        -- Square corners. The design system allows at most a 2px radius, and
+        -- the compositor is the reference every panel matches, so it sits at
+        -- zero rather than at the limit.
+        rounding         = 0,
         active_opacity   = 1.0,
         inactive_opacity = 1.0,
 
-        -- A short, strictly black shadow. It separates stacked windows on dark
-        -- wallpapers without tinting the palette: monochrome black cannot
-        -- introduce a hue, so the four design tokens stay authoritative.
+        -- No shadows. The design system treats the carbon surface and the
+        -- 1.5px hairline as the only depth cue, and on an AMOLED panel a black
+        -- shadow is either invisible or a grey halo over the void canvas.
         shadow = {
-            enabled        = true,
-            range          = 12,
-            render_power   = 3,
-            color          = "rgba(000000ff)",
-            color_inactive = "rgba(000000ff)",
-            offset         = "0 3",
-            sharp          = false,
+            enabled = false,
         },
 
         -- Blur is reserved for the layer rules below, where Waybar, Fuzzel,
