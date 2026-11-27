@@ -11,12 +11,12 @@ Architecture: all
 Depends: hyprland, hypridle, hyprlock, waybar, kitty, fuzzel,
  sway-notification-center, swaybg, grim, slurp, wl-clipboard, cliphist,
  brightnessctl, wireplumber, jq, libnotify-bin, network-manager, bluez,
- blueman, power-profiles-daemon, kanshi, wdisplays, pulsemixer, pavucontrol,
+ blueman, power-profiles-daemon, upower, kanshi, wdisplays, pulsemixer, pavucontrol,
  btrfs-progs, snapper, podman, distrobox,
  thunar, thunar-volman, thunar-archive-plugin, tumbler, gvfs, gvfs-backends,
- file-roller, unzip, zip, xz-utils, swayimg, zathura, zathura-pdf-poppler,
+ file-roller, unzip, zip, xz-utils, mpv, swayimg, zathura, zathura-pdf-poppler,
  mousepad, galculator, btop, xdg-user-dirs,
- python3, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, flatpak, git,
+ qt6ct, python3, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, flatpak, git,
  pkexec, polkitd, lxpolkit, sudo
 Recommends: fluorine-artwork
 Description: FluorineOS AMOLED Hyprland desktop environment
@@ -81,8 +81,9 @@ Description: FluorineOS AMOLED Hyprland desktop environment
  state. flr-config owns the editable state in ~/.config/fluorine/config.lua
  and applies it to Hyprland and hypridle.
  .
- The daily-driver utilities follow the same palette: Thunar with volume and
- archive plugins plus Tumbler thumbnails, File Roller for zip, tar, and 7z
+ The daily-driver utilities follow the same palette: mpv for video and audio
+ playback, Thunar with volume and archive plugins plus Tumbler thumbnails,
+ File Roller for zip, tar, and 7z
  archives, swayimg as the Wayland image viewer, Zathura with Poppler for
  recolored dark PDF viewing, Mousepad for plain text, and galculator as a
  floating calculator. Default MIME handlers in /etc/xdg/mimeapps.list and
