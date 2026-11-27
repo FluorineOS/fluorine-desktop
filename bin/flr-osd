@@ -6,6 +6,10 @@ readonly app_name="FluorineOS"
 # One notification id for every OSD message, so quick repeated presses replace
 # the previous card instead of stacking a column of them.
 readonly note_id=991
+# The keyboard backlight is a LED class device named after the vendor, so the
+# lookup reads sysfs instead of hardcoding one name. The test suite points this
+# at a temporary tree; nothing else sets it.
+leds_root="${FLR_LEDS_ROOT:-/sys/class/leds}"
 
 usage() {
     printf 'Usage: %s <action> [direction]\n\n' "${program}"
@@ -17,6 +21,7 @@ usage() {
     printf '  mic              Toggle mute on the default source.\n'
     printf '  brightness up|down\n'
     printf '                   Raise or lower the backlight by five percent.\n'
+    printf '  kbd up|down      Raise or lower the keyboard backlight by ten percent.\n'
     printf '  wifi             Toggle the Wi-Fi radio.\n'
 }
 
@@ -110,6 +115,43 @@ brightness() {
     send "Brightness" "${percent:-changed}"
 }
 
+# Not every machine has a keyboard backlight, and the ones that do name the LED
+# tpacpi::kbd_backlight, asus::kbd_backlight, smc::kbd_backlight and so on. Take
+# the first device that follows the convention.
+kbd_device() {
+    local path
+
+    for path in "${leds_root}"/*::kbd_backlight; do
+        [ -e "${path}" ] || continue
+        printf '%s\n' "${path##*/}"
+        return 0
+    done
+
+    return 1
+}
+
+kbd() {
+    local device percent
+
+    command -v brightnessctl >/dev/null 2>&1 ||
+        die "brightnessctl is required but was not found"
+
+    if ! device=$(kbd_device); then
+        die "no keyboard backlight device"
+    fi
+
+    case "${1:-}" in
+        up) brightnessctl -q -d "${device}" set 10%+ 2>/dev/null ||
+                die "the keyboard backlight rejected the change" ;;
+        down) brightnessctl -q -d "${device}" set 10%- 2>/dev/null ||
+                die "the keyboard backlight rejected the change" ;;
+        *) die "kbd needs up or down" ;;
+    esac
+
+    percent=$(brightnessctl -m -d "${device}" 2>/dev/null | cut -d, -f4)
+    send "Keyboard" "${percent:-changed}"
+}
+
 wifi() {
     local state
 
@@ -131,6 +173,7 @@ main() {
         mute) mute ;;
         mic) mic ;;
         brightness) brightness "${2:-}" ;;
+        kbd) kbd "${2:-}" ;;
         wifi) wifi ;;
         -h | --help)
             usage

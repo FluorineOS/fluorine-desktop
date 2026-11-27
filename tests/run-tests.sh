@@ -638,6 +638,75 @@ STUB
     fi
 }
 
+test_osd_keyboard_backlight() {
+    local dir output rc
+
+    dir=$(new_case osd-kbd)
+    mkdir -p "${dir}/leds/tpacpi::kbd_backlight"
+
+    stub "${dir}/bin/brightnessctl" <<'STUB'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${BRIGHTNESSCTL_LOG:?}"
+case "$*" in
+    *-m*) printf 'tpacpi::kbd_backlight,leds,2,40%%\n' ;;
+esac
+STUB
+    stub "${dir}/bin/notify-send" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"${NOTIFY_LOG:?}"
+STUB
+
+    if output=$(
+        PATH="${dir}/bin:${PATH}" \
+            HOME="${dir}/home" \
+            FLR_LEDS_ROOT="${dir}/leds" \
+            BRIGHTNESSCTL_LOG="${dir}/brightnessctl.log" \
+            NOTIFY_LOG="${dir}/notify.log" \
+            bash "${repo_root}/bin/flr-osd" kbd up 2>&1
+    ); then
+        rc=0
+    else
+        rc=$?
+    fi
+
+    if [ "${rc}" -ne 0 ]; then
+        fail_test "flr-osd kbd up" "exit ${rc}: ${output}"
+    elif ! grep -q -- '-d tpacpi::kbd_backlight' "${dir}/brightnessctl.log"; then
+        fail_test "flr-osd kbd up" "the discovered device was not used"
+    elif ! grep -qa 'Keyboard' "${dir}/notify.log"; then
+        fail_test "flr-osd kbd up" "no confirmation card was sent"
+    else
+        pass_test "flr-osd changes the discovered keyboard backlight"
+    fi
+
+    # A machine without a backlit keyboard must fail for the keybinding, which
+    # discards the error, instead of writing to an unrelated LED.
+    rm -rf "${dir}/leds"
+    mkdir -p "${dir}/leds"
+    if output=$(
+        PATH="${dir}/bin:${PATH}" \
+            HOME="${dir}/home" \
+            FLR_LEDS_ROOT="${dir}/leds" \
+            BRIGHTNESSCTL_LOG="${dir}/brightnessctl.log" \
+            NOTIFY_LOG="${dir}/notify.log" \
+            bash "${repo_root}/bin/flr-osd" kbd up 2>&1
+    ); then
+        rc=0
+    else
+        rc=$?
+    fi
+
+    if [ "${rc}" -eq 0 ]; then
+        fail_test "flr-osd kbd without device" "exit 0 without a backlight"
+    elif ! printf '%s' "${output}" | grep -qa 'no keyboard backlight'; then
+        fail_test "flr-osd kbd without device" "missing message: ${output}"
+    else
+        pass_test "flr-osd reports a missing keyboard backlight"
+    fi
+}
+
+test_osd_keyboard_backlight
 test_ctl_confirmation
 test_ctl_install_gate
 test_power_failure

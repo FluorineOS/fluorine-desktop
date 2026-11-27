@@ -383,6 +383,13 @@ hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd(
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(
     "sh -c 'flr-osd brightness down 2>/dev/null || true'"))
 
+-- Keyboard backlight keys. The LED class device is vendor-specific and absent
+-- on most desktops, so flr-osd discovers it and the binding no-ops otherwise.
+hl.bind("XF86KbdBrightnessUp", hl.dsp.exec_cmd(
+    "sh -c 'flr-osd kbd up 2>/dev/null || true'"))
+hl.bind("XF86KbdBrightnessDown", hl.dsp.exec_cmd(
+    "sh -c 'flr-osd kbd down 2>/dev/null || true'"))
+
 -- FluorineOS utilities
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd("flr-shot"))
 -- Cycle the display shader off, night, mono (color-accurate by default).
