@@ -387,6 +387,56 @@ else
     tagged INFO "APT repository" "curl not installed"
 fi
 
+section "Packages, disk, and recovery"
+
+# dpkg --audit reads the package database and needs no privileges. It reports
+# unpacked, half-configured, or half-installed packages, which is the state an
+# interrupted upgrade leaves behind.
+if command -v dpkg >/dev/null 2>&1; then
+    if [[ -z "$(dpkg --audit 2>&1 || true)" ]]; then
+        tagged OK "Package state" "dpkg --audit reports nothing"
+    else
+        tagged WARN "Package state" "unfinished packages; run: sudo dpkg --configure -a && sudo apt-get -f install"
+    fi
+else
+    tagged INFO "Package state" "dpkg not installed"
+fi
+
+# Free space is the other way an upgrade stops half way, and it is readable
+# without root. One GiB is the floor an upgrade of this image needs.
+for mount_point in / /home /var; do
+    [[ -d "${mount_point}" ]] || continue
+    avail_kib="$(df -Pk "${mount_point}" 2>/dev/null | awk 'NR == 2 { print $4 }' || true)"
+    [[ -n "${avail_kib}" ]] || continue
+    if [[ "${avail_kib}" -lt 1048576 ]]; then
+        tagged WARN "Free space ${mount_point}" "$((avail_kib / 1024)) MiB; an upgrade needs 1 GiB"
+    else
+        tagged OK "Free space ${mount_point}" "$((avail_kib / 1024)) MiB"
+    fi
+done
+
+# The rollback path is only real on Btrfs, and it only covers the root
+# subvolume. Say which of the two applies instead of implying both do.
+root_fstype="$(findmnt -no FSTYPE / 2>/dev/null || true)"
+if [[ "${root_fstype}" == "btrfs" ]] && [[ -e /etc/snapper/configs/root ]]; then
+    tagged OK "Snapshots" "btrfs root configured; flr-snapshot list"
+elif [[ "${root_fstype}" == "btrfs" ]]; then
+    tagged WARN "Snapshots" "btrfs root without a Snapper configuration"
+else
+    tagged INFO "Snapshots" "root is ${root_fstype:-unknown}; snapshots unavailable"
+fi
+
+if command -v journalctl >/dev/null 2>&1; then
+    boots="$(journalctl --list-boots --no-pager 2>/dev/null | wc -l || true)"
+    if [[ "${boots}" -gt 1 ]]; then
+        tagged OK "Journal" "${boots} boots on disk; journalctl -b -1 for the last one"
+    elif [[ "${boots}" -eq 1 ]]; then
+        tagged INFO "Journal" "only the current boot is readable"
+    else
+        tagged INFO "Journal" "not readable by this user"
+    fi
+fi
+
 section "Summary"
 printf '  %s: %d OK, %d WARN, %d INFO\n' "${program}" \
     "${ok_count}" "${warn_count}" "${info_count}"
