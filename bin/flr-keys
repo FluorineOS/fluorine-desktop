@@ -34,6 +34,11 @@ done
 # Hyprland reports modifiers as a bitmask. Decode the bits into names so the
 # menu reads like a normal keybind list. The filter below is a jq program, so
 # its $mask and $value parameters must not be expanded by the shell.
+#
+# Dispatchers are also translated, because "SUPER + Q killactive" means nothing
+# to someone who has not read the Hyprland wiki. Every unknown dispatcher falls
+# through to its own name instead of disappearing, so a bind added in the user's
+# own config is still listed.
 # shellcheck disable=SC2016
 readonly jq_filter='
 def bit($mask; $value): (($mask / $value) | floor) % 2 == 1;
@@ -46,8 +51,29 @@ def mods:
     + (if bit(.modmask; 32) then "MOD3 + " else "" end)
     + (if bit(.modmask; 64) then "SUPER + " else "" end)
     + (if bit(.modmask; 128) then "MOD5 + " else "" end);
+def arg: (.arg // "");
+def describe:
+    if .dispatcher == "exec" then "run " + arg
+    elif .dispatcher == "killactive" then "close this window"
+    elif .dispatcher == "fullscreen" then
+        (if arg == "1" then "fullscreen" elif arg == "0" then "leave fullscreen" else "toggle fullscreen" end)
+    elif .dispatcher == "togglefloating" then "toggle floating"
+    elif .dispatcher == "pseudo" then "toggle pseudo-tile"
+    elif .dispatcher == "togglesplit" then "toggle split direction"
+    elif .dispatcher == "movefocus" then "focus " + arg
+    elif .dispatcher == "swapwindow" then "swap with " + arg
+    elif .dispatcher == "movewindow" then "move window with the pointer"
+    elif .dispatcher == "resizewindow" then "resize window with the pointer"
+    elif .dispatcher == "resizeactive" then "resize this window"
+    elif .dispatcher == "workspace" then "go to workspace " + arg
+    elif .dispatcher == "movetoworkspace" then "move window to workspace " + arg
+    elif .dispatcher == "movetoworkspacesilent" then "move window to workspace " + arg
+    elif .dispatcher == "cyclenext" then "next window"
+    elif .dispatcher == "dpms" then "display " + arg
+    elif .dispatcher == "exit" then "log out"
+    else .dispatcher end;
 .[]
-| [(mods + .key), .dispatcher, (.arg // "")]
+| [(mods + .key), describe, (if .dispatcher == "exec" then arg else "" end)]
 | @tsv
 '
 
