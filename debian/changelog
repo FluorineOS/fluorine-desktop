@@ -1,3 +1,17 @@
+fluorine-desktop (0.16.2) trixie; urgency=medium
+
+  * flr-doctor reports the state the recovery runbook starts from: whether
+    dpkg --audit has unfinished work, how much space is free on /, /home, and
+    /var against the one GiB an upgrade needs, whether the root filesystem is
+    Btrfs with a Snapper configuration, and whether an earlier boot is still
+    readable in the journal. All of it is read-only and needs no privileges.
+  * flr-update checks free space before it takes a snapshot or changes a
+    package, and prints the dpkg --configure -a and apt-get -f install sequence
+    when the free space is below that floor, because an upgrade that runs out of
+    space stops after some packages have already been replaced.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Sat, 28 Nov 2026 00:20:00 +0530
+
 fluorine-desktop (0.16.1) trixie; urgency=medium
 
   * Extend the default handlers to every type the installed applications
