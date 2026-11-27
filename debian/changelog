@@ -8,10 +8,9 @@ fluorine-desktop (0.15.2) trixie; urgency=medium
   * Add workspace navigation for a tenth workspace and for the pointer:
     SUPER + 0 reaches workspace 10, and scrolling with SUPER walks the
     existing workspaces in either direction.
-  * Enable touchpad tap-to-click, natural scrolling, middle-button emulation
-    and disable-while-typing, and add a three-finger horizontal swipe for
-    workspace switching. Hyprland leaves tap-to-click off, which made a
-    laptop panel feel broken.
+  * Set the touchpad block explicitly with the 0.55 option names: natural
+    scrolling, tap-to-click, middle-button emulation and disable-while-typing,
+    plus a three-finger horizontal swipe for workspace switching.
   * Bind Print to a full-screen capture and SUPER + N to the notification
     centre, so both are reachable without remembering the utility name.
   * Float the application hub, the sync panel, the audio mixer and the

@@ -107,9 +107,11 @@ hl.config({
 -- follow_mouse = 1 means focus follows the pointer within a window but never
 -- steals focus across windows, so typing is not interrupted by a stray move.
 --
--- The touchpad block is what makes a laptop usable without a mouse: Hyprland
--- leaves tap-to-click off by default, which reads as a broken trackpad to
--- anyone who has not discovered SUPER + left-drag.
+-- Option names follow the 0.55 schema, which uses underscores; the 0.54
+-- hyprlang spelling used hyphens, so tap-to-click is not a valid key here.
+-- tap_to_click is already the default, but it is stated explicitly so a future
+-- default change cannot silently remove it. Natural scrolling and
+-- middle-button emulation are the additions that change a laptop panel.
 hl.config({
     input = {
         follow_mouse = 1,
@@ -117,7 +119,7 @@ hl.config({
 
         touchpad = {
             natural_scroll          = true,
-            ["tap-to-click"]        = true,
+            tap_to_click            = true,
             disable_while_typing    = true,
             middle_button_emulation = true,
         },
