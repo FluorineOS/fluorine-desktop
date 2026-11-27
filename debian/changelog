@@ -1,3 +1,15 @@
+fluorine-desktop (0.16.3) trixie; urgency=medium
+
+  * flr-onboard names the installer on the live medium instead of opening the
+    keybind cheat sheet there: one notification points at SUPER + Escape and the
+    Install FluorineOS entry, which is the only path that runs calamares through
+    the live sudoers grant. An installed system still gets the cheat sheet once.
+  * flr-keys describes what a bind does rather than printing the Hyprland
+    dispatcher, so the menu reads "SUPER + Q close this window" instead of
+    "SUPER + Q killactive". A dispatcher it does not know is still listed.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Sat, 28 Nov 2026 01:05:00 +0530
+
 fluorine-desktop (0.16.2) trixie; urgency=medium
 
   * flr-doctor reports the state the recovery runbook starts from: whether
