@@ -102,6 +102,18 @@ else
         "${total}" "${fluorine}" "${security}"
 fi
 
+# An upgrade that runs out of space stops after some packages have already been
+# replaced, which is the slowest failure to recover from. The floor is one GiB;
+# below it the upgrade is still attempted, because the user may have just cleaned
+# space and `df` can be stale, but the warning has to come before the changes.
+free_kib=$(df -Pk / 2>/dev/null | awk 'NR == 2 { print $4 }')
+if [ -n "${free_kib}" ] && [ "${free_kib}" -lt 1048576 ]; then
+    printf '\nWarning: %s MiB free on /. An upgrade needs about 1 GiB.\n' \
+        "$((free_kib / 1024))"
+    printf 'If it stops half way, finish it with:\n'
+    printf '  sudo dpkg --configure -a && sudo apt-get -f install\n'
+fi
+
 if [ "${check_only}" -eq 1 ]; then
     printf '\nCheck only. No packages were changed.\n'
     exit 0
@@ -118,6 +130,9 @@ else
     fi
 
     printf '\nApplying the upgrade\n'
+    # upgrade, not full-upgrade: it never removes a package to resolve a
+    # conflict, so a conflict becomes a visible held-back package instead of an
+    # unrequested removal. Removing something stays a decision the user makes.
     "${privilege[@]}" apt-get upgrade
 fi
 
