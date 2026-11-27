@@ -588,7 +588,58 @@ PY
     fi
 }
 
+test_ctl_install_gate() {
+    local dir menu status
+    dir=$(new_case ctl-install)
+    menu="${dir}/menu"
+
+    stub "${dir}/bin/fuzzel" <<'STUB'
+#!/usr/bin/env bash
+cat >"${FUZZEL_MENU:?}"
+STUB
+    stub "${dir}/bin/flr-power" <<'STUB'
+#!/usr/bin/env bash
+printf 'PWR BAL
+'
+STUB
+
+    # Installed system: no live marker, so the installer must not be offered.
+    if (
+        PATH="${dir}/bin:${PATH}"             HOME="${dir}/home"             XDG_STATE_HOME="${dir}/state"             FLUORINE_LIVE_MARKER="${dir}/not-live"             FUZZEL_MENU="${menu}"             bash "${repo_root}/bin/flr-ctl"
+    ) >/dev/null 2>&1; then
+        status=0
+    else
+        status=$?
+    fi
+
+    if [ "${status}" -ne 0 ]; then
+        fail_test "flr-ctl installed system" "exit ${status}"
+    elif grep -qa 'Install FluorineOS' "${menu}"; then
+        fail_test "flr-ctl installed system" "the installer entry is offered without a live marker"
+    else
+        pass_test "flr-ctl hides the installer on an installed system"
+    fi
+
+    mkdir -p "${dir}/live"
+    if (
+        PATH="${dir}/bin:${PATH}"             HOME="${dir}/home"             XDG_STATE_HOME="${dir}/state"             FLUORINE_LIVE_MARKER="${dir}/live"             FUZZEL_MENU="${menu}"             bash "${repo_root}/bin/flr-ctl"
+    ) >/dev/null 2>&1; then
+        status=0
+    else
+        status=$?
+    fi
+
+    if [ "${status}" -ne 0 ]; then
+        fail_test "flr-ctl live medium" "exit ${status}"
+    elif ! grep -qa 'Install FluorineOS' "${menu}"; then
+        fail_test "flr-ctl live medium" "the installer entry is missing on the live medium"
+    else
+        pass_test "flr-ctl offers the installer on the live medium"
+    fi
+}
+
 test_ctl_confirmation
+test_ctl_install_gate
 test_power_failure
 test_keys_outside_session
 test_onboard_marker

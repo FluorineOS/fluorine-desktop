@@ -7,6 +7,9 @@ readonly prompt="System > "
 # in JetBrains Mono through fuzzel.ini, so padding to a fixed width lines the
 # hints up down the menu.
 readonly menu_width=36
+# The live medium is the only place an installer exists. The marker is
+# overridable so the menu logic can be tested without a live system.
+readonly live_marker="${FLUORINE_LIVE_MARKER:-/run/live}"
 
 # Each row carries the icon Fuzzel should draw beside it. The Rofi extended
 # dmenu protocol appends a NUL, the literal "icon", a unit separator, and the
@@ -160,6 +163,12 @@ entries=(
     "Shut Down||flr-poweroff"
 )
 
+# Keep installation in the menu only where it can work. On an installed system
+# the entry would launch a Calamares that installer-cleanup has removed.
+if [ -d "${live_marker}" ]; then
+    entries=("Install FluorineOS|live medium|flr-install" "${entries[@]}")
+fi
+
 menu() {
     local entry label hint icon
 
@@ -245,6 +254,15 @@ case "${selection}" in
     "Reboot"*)
         confirm "Restart the computer"
         exec systemctl reboot
+        ;;
+    "Install FluorineOS"*)
+        if [ ! -d "${live_marker}" ]; then
+            die "the installer is only available on the live medium"
+        fi
+
+        # The live privilege rule grants this exact path, so the launcher needs
+        # no password and cannot be borrowed for a different command.
+        exec sudo /usr/bin/calamares
         ;;
     "Shut Down"*)
         confirm "Power off the computer"
