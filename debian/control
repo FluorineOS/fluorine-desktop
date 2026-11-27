@@ -10,8 +10,9 @@ Package: fluorine-desktop
 Architecture: all
 Depends: hyprland, hypridle, hyprlock, waybar, kitty, fuzzel,
  sway-notification-center, swaybg, grim, slurp, wl-clipboard, cliphist,
- brightnessctl, wireplumber, jq, libnotify-bin, network-manager, bluez,
- blueman, power-profiles-daemon, upower, kanshi, wdisplays, pulsemixer, pavucontrol,
+ brightnessctl, brightness-udev, wireplumber, pipewire-alsa, jq, libnotify-bin,
+ network-manager, bluez, blueman, power-profiles-daemon, upower, kanshi,
+ wdisplays, pulsemixer, pavucontrol, udisks2, qt6-wayland,
  btrfs-progs, snapper, podman, distrobox,
  thunar, thunar-volman, thunar-archive-plugin, tumbler, gvfs, gvfs-backends,
  file-roller, unzip, zip, xz-utils, mpv, swayimg, zathura, zathura-pdf-poppler,
