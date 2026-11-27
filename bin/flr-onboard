@@ -5,10 +5,13 @@ readonly program="flr-onboard"
 readonly state_root="${XDG_STATE_HOME:-${HOME}/.local/state}"
 readonly state_dir="${state_root}/fluorine"
 readonly marker="${state_dir}/onboarded"
+# The live medium mounts its root here. A test can point the check elsewhere.
+readonly live_marker="${FLR_LIVE_MARKER:-/run/live}"
 
 usage() {
     printf 'Usage: %s\n\n' "${program}"
-    printf 'Show the keybinding cheat sheet on the first interactive login.\n'
+    printf 'Show the first-login hint once per session: the installer on the live\n'
+    printf 'medium, the keybinding cheat sheet on an installed system.\n'
 }
 
 case "${1:-}" in
@@ -35,6 +38,28 @@ if [[ -e "${marker}" ]]; then
 fi
 
 mkdir -p "${state_dir}"
+
+# The live medium exists to be installed, and its installer is reachable from the
+# system menu rather than from a desktop icon, so the first live login names that
+# path once instead of printing the whole keybind list. The marker lives in the
+# live user's home, which the next boot re-creates.
+if [[ -d "${live_marker}" ]]; then
+    if ! command -v notify-send >/dev/null 2>&1; then
+        printf '%s: notify-send is missing; the install hint cannot be shown.\n' \
+            "${program}" >&2
+        exit 1
+    fi
+    if ! notify-send -a "FluorineOS" -u normal -t 15000 -r 995 \
+        -h string:x-canonical-private-synchronous:flr-onboard \
+        "Install FluorineOS" "SUPER + Escape opens the system menu; Install FluorineOS starts the installer.
+SUPER + / lists every keybinding."; then
+        printf '%s: the install hint could not be shown; it will retry on the next login.\n' \
+            "${program}" >&2
+        exit 1
+    fi
+    : >"${marker}"
+    exit 0
+fi
 
 if command -v flr-keys >/dev/null 2>&1; then
     if ! flr-keys; then
