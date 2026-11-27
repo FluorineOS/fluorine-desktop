@@ -28,6 +28,11 @@ hl.config({
         gaps_out    = 6,
         layout      = "dwindle",
 
+        -- Drag a window edge or a gap to resize it. Pointer resizing sits
+        -- beside the SUPER + right-drag binding below, because a trackpad user
+        -- reaches the edge long before they reach a modifier chord.
+        resize_on_border = true,
+
         col = {
             active_border   = { colors = { "rgba(b4f03aff)" } },
             inactive_border = "rgba(1c2229ff)",
@@ -81,6 +86,50 @@ hl.config({
     xwayland = {
         force_zero_scaling = true,
     },
+})
+
+-- Dwindle keeps the split direction of the window it replaced. Without this,
+-- closing a window reshuffles the whole tree, which makes keyboard resizing
+-- feel unpredictable.
+hl.config({
+    dwindle = {
+        preserve_split = true,
+    },
+})
+
+----------------
+----  INPUT  ----
+----------------
+
+-- Pointer and keyboard behaviour for a workstation that is mostly driven from
+-- the keyboard and often used on a laptop panel.
+--
+-- follow_mouse = 1 means focus follows the pointer within a window but never
+-- steals focus across windows, so typing is not interrupted by a stray move.
+--
+-- The touchpad block is what makes a laptop usable without a mouse: Hyprland
+-- leaves tap-to-click off by default, which reads as a broken trackpad to
+-- anyone who has not discovered SUPER + left-drag.
+hl.config({
+    input = {
+        follow_mouse = 1,
+        sensitivity  = 0,
+
+        touchpad = {
+            natural_scroll          = true,
+            ["tap-to-click"]        = true,
+            disable_while_typing    = true,
+            middle_button_emulation = true,
+        },
+    },
+})
+
+-- Three-finger horizontal swipe switches workspace, matching the two-finger
+-- scroll gesture used on the bar but for a whole hand.
+hl.gesture({
+    fingers   = 3,
+    direction = "horizontal",
+    action    = "workspace",
 })
 
 ---------------------------
@@ -227,6 +276,43 @@ hl.window_rule({
     size   = { 900, 560 },
 })
 
+-- The two GTK applications that are dialogs in practice: the application hub
+-- and the sync panel both expect a fixed canvas, and tiling them wastes the
+-- workspace around them.
+hl.window_rule({
+    name   = "fluorine-store",
+    match  = { class = "^(org[.]fluorineos[.]Store|flr-store)$" },
+    float  = true,
+    center = true,
+    size   = { 1040, 700 },
+})
+
+hl.window_rule({
+    name   = "fluorine-sync",
+    match  = { class = "^(org[.]fluorineos[.]Sync|flr-sync)$" },
+    float  = true,
+    center = true,
+    size   = { 920, 620 },
+})
+
+-- Mixers and device managers are transient control panels opened from the
+-- system menu, so they float instead of taking a tile.
+hl.window_rule({
+    name   = "fluorine-mixer",
+    match  = { class = "^(?i)(pavucontrol|org[.]pulseaudio[.]pavucontrol)$" },
+    float  = true,
+    center = true,
+    size   = { 760, 560 },
+})
+
+hl.window_rule({
+    name   = "fluorine-bluetooth-manager",
+    match  = { class = "^(?i)blueman-manager$" },
+    float  = true,
+    center = true,
+    size   = { 960, 680 },
+})
+
 ---------------------
 ---- AUTOSTART ------
 ---------------------
@@ -326,8 +412,54 @@ hl.bind(mainMod .. " + J",         hl.dsp.focus({ direction = "down" }))
 hl.bind(mainMod .. " + K",         hl.dsp.focus({ direction = "up" }))
 hl.bind(mainMod .. " + semicolon", hl.dsp.focus({ direction = "right" }))
 
--- Switch workspaces with SUPER + [1-9] and move windows with SUPER + SHIFT.
-for i = 1, 9 do
-    hl.bind(mainMod .. " + " .. i,         hl.dsp.focus({ workspace = i }))
-    hl.bind(mainMod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
+-- Switch workspaces with SUPER + [1-9], and reach a tenth with SUPER + 0.
+-- Moving a window to a workspace is the same chord with SHIFT.
+for i = 1, 10 do
+    local key = i % 10 -- 10 maps to key 0
+    hl.bind(mainMod .. " + " .. key,         hl.dsp.focus({ workspace = i }))
+    hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
 end
+
+-- Pointer workspace switching. A wheel or a two-finger scroll over the desktop
+-- walks the existing workspaces instead of the configured range, so a
+-- workspace that was never created is skipped rather than shown empty.
+hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
+hl.bind(mainMod .. " + mouse_up",   hl.dsp.focus({ workspace = "e-1" }))
+
+-- Move and resize with the pointer. These are the two interactions a new user
+-- tries first, and neither existed before: a tiled window could not be moved
+-- between tiles or resized without a keyboard chord.
+hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
+hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
+
+-- Keyboard window geometry. ALT + arrow nudges the active window by 40px, and
+-- SUPER + SHIFT + arrow swaps it with its neighbour in that direction, which
+-- is how a tile is reordered without dragging.
+hl.bind(mainMod .. " + ALT + left",  hl.dsp.window.resize({ x = -40, y = 0,   relative = true }))
+hl.bind(mainMod .. " + ALT + right", hl.dsp.window.resize({ x = 40,  y = 0,   relative = true }))
+hl.bind(mainMod .. " + ALT + up",    hl.dsp.window.resize({ x = 0,   y = -40, relative = true }))
+hl.bind(mainMod .. " + ALT + down",  hl.dsp.window.resize({ x = 0,   y = 40,  relative = true }))
+
+hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.window.swap({ direction = "left" }))
+hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.swap({ direction = "right" }))
+hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.window.swap({ direction = "up" }))
+hl.bind(mainMod .. " + SHIFT + down",  hl.dsp.window.swap({ direction = "down" }))
+
+-- Tiling controls. Pseudo-tiling keeps a window's size while it stays in the
+-- layout, and togglesplit flips the dwindle split axis so a column can become
+-- a row without reopening the window.
+hl.bind(mainMod .. " + P", hl.dsp.window.pseudo({ action = "toggle" }))
+hl.bind(mainMod .. " + T", hl.dsp.layout("togglesplit"))
+
+-- Cycle the windows on the current workspace without leaving the keyboard,
+-- forward with TAB and backward with SHIFT + TAB.
+hl.bind(mainMod .. " + TAB",         hl.dsp.window.cycle_next())
+hl.bind(mainMod .. " + SHIFT + TAB", hl.dsp.window.cycle_next({ next = false }))
+
+-- Notification centre. The bar carries no notification icon, so this chord is
+-- the keyboard route to history and to Do Not Disturb.
+hl.bind(mainMod .. " + N", hl.dsp.exec_cmd("swaync-client --toggle-panel"))
+
+-- Print captures the whole screen; SUPER + SHIFT + S keeps the region
+-- selector, so both workflows stay one keypress away.
+hl.bind("Print", hl.dsp.exec_cmd("flr-shot --full"))
