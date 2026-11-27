@@ -706,12 +706,105 @@ STUB
     fi
 }
 
+# The keybind menu must not print Hyprland's dispatcher names. A bind the script
+# does not know is still listed under its own name rather than dropped.
+test_keys_readable_labels() {
+    local dir rows
+    dir=$(new_case keys-labels)
+
+    stub "${dir}/bin/hyprctl" <<'STUB'
+#!/usr/bin/env bash
+cat <<'JSON'
+[{"modmask":64,"key":"Q","dispatcher":"killactive","arg":""},
+ {"modmask":64,"key":"Return","dispatcher":"exec","arg":"kitty"},
+ {"modmask":64,"key":"F","dispatcher":"fullscreen","arg":""},
+ {"modmask":64,"key":"z","dispatcher":"sendshortcut","arg":"x"}]
+JSON
+STUB
+
+    stub "${dir}/bin/fuzzel" <<'STUB'
+#!/usr/bin/env bash
+cat >"${FUZZEL_LOG}"
+exit 1
+STUB
+
+    PATH="${dir}/bin:${PATH}" \
+        FUZZEL_LOG="${dir}/rows" \
+        HYPRLAND_INSTANCE_SIGNATURE=test \
+        bash "${repo_root}/bin/flr-keys" >/dev/null 2>&1 || true
+
+    rows=$(cat "${dir}/rows" 2>/dev/null || true)
+
+    if ! printf '%s' "${rows}" | grep -qa 'close this window'; then
+        fail_test "flr-keys labels" "killactive was not described: ${rows}"
+    elif ! printf '%s' "${rows}" | grep -qa 'run kitty'; then
+        fail_test "flr-keys labels" "exec was not described: ${rows}"
+    elif ! printf '%s' "${rows}" | grep -qa 'toggle fullscreen'; then
+        fail_test "flr-keys labels" "fullscreen was not described: ${rows}"
+    elif printf '%s' "${rows}" | grep -qa 'killactive'; then
+        fail_test "flr-keys labels" "the raw dispatcher name is still printed"
+    elif ! printf '%s' "${rows}" | grep -qa 'sendshortcut'; then
+        fail_test "flr-keys labels" "an unknown dispatcher was dropped"
+    else
+        pass_test "flr-keys describes dispatchers and keeps unknown ones"
+    fi
+}
+
+# The live medium is the only session where the installer matters, so it gets the
+# install hint instead of the cheat sheet, and the cheat sheet must not run there.
+test_onboard_live() {
+    local dir output rc marker
+    dir=$(new_case onboard-live)
+    marker="${dir}/state/fluorine/onboarded"
+    mkdir -p "${dir}/live"
+
+    stub "${dir}/bin/notify-send" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"${NOTIFY_LOG}"
+STUB
+
+    stub "${dir}/bin/flr-keys" <<'STUB'
+#!/usr/bin/env bash
+touch "${KEYS_CALLED}"
+exit 0
+STUB
+
+    if output=$(
+        PATH="${dir}/bin:${PATH}" \
+            HOME="${dir}/home" \
+            XDG_STATE_HOME="${dir}/state" \
+            HYPRLAND_INSTANCE_SIGNATURE=test \
+            FLR_LIVE_MARKER="${dir}/live" \
+            NOTIFY_LOG="${dir}/notify.log" \
+            KEYS_CALLED="${dir}/keys-called" \
+            bash "${repo_root}/bin/flr-onboard" 2>&1
+    ); then
+        rc=0
+    else
+        rc=$?
+    fi
+
+    if [ "${rc}" -ne 0 ]; then
+        fail_test "flr-onboard live hint" "exit ${rc}: ${output}"
+    elif ! grep -qa 'Install FluorineOS' "${dir}/notify.log" 2>/dev/null; then
+        fail_test "flr-onboard live hint" "the install hint was not shown"
+    elif [ -e "${dir}/keys-called" ]; then
+        fail_test "flr-onboard live hint" "the cheat sheet opened on the live medium"
+    elif [ ! -e "${marker}" ]; then
+        fail_test "flr-onboard live hint" "the onboarded marker was not written"
+    else
+        pass_test "flr-onboard names the installer on the live medium"
+    fi
+}
+
 test_osd_keyboard_backlight
 test_ctl_confirmation
 test_ctl_install_gate
 test_power_failure
 test_keys_outside_session
 test_onboard_marker
+test_keys_readable_labels
+test_onboard_live
 test_update_snapshot_gate
 test_mode_idle_control
 test_python_helpers
