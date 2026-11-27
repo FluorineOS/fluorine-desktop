@@ -1,21 +1,71 @@
 [Default Applications]
+# FluorineOS default handlers.
+#
+# Every entry names an application this image installs, and only MIME types that
+# application declares in its own desktop entry, so no association can point at a
+# handler that is missing or cannot open the file. Types that inherit from a
+# listed type are deliberately absent: text/markdown reaches Mousepad through
+# text/plain without an entry of its own.
+#
+# This file is installed to /etc/xdg/mimeapps.list, and an identical copy ships
+# at /etc/skel/.config/mimeapps.list so a new user starts with the same defaults.
+# tests/validation/integration-test.sh compares the two.
+
+# Folders
 inode/directory=thunar.desktop;
+
+# Documents
 application/pdf=org.pwmt.zathura.desktop;
+text/plain=org.xfce.mousepad.desktop;
+# Empty files: Mousepad opens them for editing instead of failing.
+application/x-zerosize=org.xfce.mousepad.desktop;
+
+# Images
 image/png=swayimg.desktop;
 image/jpeg=swayimg.desktop;
+image/pjpeg=swayimg.desktop;
 image/webp=swayimg.desktop;
 image/gif=swayimg.desktop;
 image/svg+xml=swayimg.desktop;
+image/avif=swayimg.desktop;
+image/bmp=swayimg.desktop;
+image/x-bmp=swayimg.desktop;
+image/tiff=swayimg.desktop;
+image/heif=swayimg.desktop;
+
+# Archives
 application/zip=org.gnome.FileRoller.desktop;
 application/x-tar=org.gnome.FileRoller.desktop;
+application/x-gtar=org.gnome.FileRoller.desktop;
 application/x-compressed-tar=org.gnome.FileRoller.desktop;
 application/x-7z-compressed=org.gnome.FileRoller.desktop;
-text/plain=org.xfce.mousepad.desktop;
+application/gzip=org.gnome.FileRoller.desktop;
+application/x-gzip=org.gnome.FileRoller.desktop;
+application/x-xz=org.gnome.FileRoller.desktop;
+application/zstd=org.gnome.FileRoller.desktop;
+application/x-lz4=org.gnome.FileRoller.desktop;
+application/vnd.rar=org.gnome.FileRoller.desktop;
+application/x-rar=org.gnome.FileRoller.desktop;
+application/x-rar-compressed=org.gnome.FileRoller.desktop;
+
+# Video
 video/mp4=mpv.desktop;
 video/x-matroska=mpv.desktop;
 video/webm=mpv.desktop;
 video/x-msvideo=mpv.desktop;
+video/avi=mpv.desktop;
+video/quicktime=mpv.desktop;
+video/ogg=mpv.desktop;
+video/x-ms-wmv=mpv.desktop;
+video/mp2t=mpv.desktop;
+video/3gpp=mpv.desktop;
+video/x-flv=mpv.desktop;
+
+# Audio
 audio/mpeg=mpv.desktop;
 audio/flac=mpv.desktop;
 audio/ogg=mpv.desktop;
 audio/x-wav=mpv.desktop;
+audio/mp4=mpv.desktop;
+audio/m4a=mpv.desktop;
+audio/aac=mpv.desktop;
