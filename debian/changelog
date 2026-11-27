@@ -25,6 +25,12 @@ fluorine-desktop (0.15.2) trixie; urgency=medium
   * Align the panel idle default with the shipped hypridle listener at ten
     minutes, so the settings view cannot report a timeout the session does
     not honour.
+  * Align the surfaces with the design system: square window corners with no
+    drop shadows, a 2px launcher and notification radius instead of 4 to 6px,
+    the shared 11pt interface size in the bar and notification centre, the UI
+    family for notification prose with JetBrains Mono kept for timestamps, a
+    single severity edge on critical cards, and the documented error token in
+    hyprlock instead of a second red.
   * Depend on qt6ct for the Qt palette hyprland.lua already selects, on
     upower for battery reporting, and on mpv with video and audio MIME
     handlers for media playback.
