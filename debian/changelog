@@ -7,7 +7,9 @@ fluorine-desktop (0.16.0) trixie; urgency=medium
   * Extend flr-doctor with the checks a laptop bring-up needs: the GPU and
     radio firmware directories, VA-API decode profiles through vainfo, the
     keyboard backlight device, the active power profile, suspend support, and
-    blocked radios reported by rfkill.
+    blocked radios reported by rfkill. A backlight that exists but is not
+    writable by the session user is reported as a warning with the missing
+    group, instead of looking healthy.
   * Depend on brightness-udev so the session user can write the panel and
     keyboard backlight without root, on pipewire-alsa for ALSA-only
     applications, on udisks2 for the Thunar volume manager, and on qt6-wayland
