@@ -13,6 +13,7 @@ Depends: hyprland, hypridle, hyprlock, waybar, kitty, fuzzel,
  brightnessctl, brightness-udev, wireplumber, pipewire-alsa, jq, libnotify-bin,
  network-manager, bluez, blueman, power-profiles-daemon, upower, kanshi,
  wdisplays, pulsemixer, pavucontrol, udisks2, qt6-wayland,
+ xdg-desktop-portal-hyprland, xdg-desktop-portal-gtk,
  btrfs-progs, snapper, podman, distrobox,
  thunar, thunar-volman, thunar-archive-plugin, tumbler, gvfs, gvfs-backends,
  file-roller, unzip, zip, xz-utils, mpv, swayimg, zathura, zathura-pdf-poppler,
@@ -29,6 +30,11 @@ Description: FluorineOS AMOLED Hyprland desktop environment
  and hyprlock lock screen, hardware media and brightness key bindings,
  cliphist clipboard history, and the flr-shot, flr-keys, flr-doctor, and
  flr-onboard command line utilities.
+ .
+ Default handlers in /etc/xdg/mimeapps.list route folders, documents, images,
+ archives, audio, and video to the one application that opens them, and the
+ desktop session ships the Hyprland portal and its GTK backend so Flatpak
+ applications can open file dialogs and share a screen.
  .
  Waybar pairs its status modules with the Fluorine icon theme, Fuzzel draws
  the same icons in its application and action menus, and the settings panel

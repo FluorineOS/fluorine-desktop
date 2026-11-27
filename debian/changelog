@@ -1,3 +1,22 @@
+fluorine-desktop (0.16.1) trixie; urgency=medium
+
+  * Extend the default handlers to every type the installed applications
+    declare. Double-clicking a TIFF, AVIF, HEIF, or BMP image, a gzip, xz,
+    zstd, lz4, or rar archive, or a QuickTime, Matroska, Ogg, or 3GP video did
+    nothing before, because only a fraction of each application's formats was
+    mapped. Types that inherit from a mapped type are left out: markdown still
+    reaches Mousepad through text/plain.
+  * Give each shipped desktop entry a single main category. flr-store was both
+    Utility and Development, flr-sync the same, and the settings panel both
+    Settings and System, which makes a menu that groups by main category list
+    each of them twice.
+  * Depend on xdg-desktop-portal-hyprland and xdg-desktop-portal-gtk instead of
+    inheriting them from a Recommends, so file dialogs and screen sharing keep
+    working for Flatpak applications if the image is ever built without
+    Recommends.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Fri, 27 Nov 2026 23:55:00 +0530
+
 fluorine-desktop (0.16.0) trixie; urgency=medium
 
   * Add keyboard backlight keys: XF86KbdBrightnessUp and
