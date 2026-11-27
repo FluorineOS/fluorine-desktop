@@ -1,3 +1,37 @@
+fluorine-desktop (0.15.2) trixie; urgency=medium
+
+  * Add the pointer and keyboard window controls a tiling workflow needs:
+    SUPER + left-drag moves a window, SUPER + right-drag and window edges
+    resize it, ALT + arrow nudges by 40px, SUPER + SHIFT + arrow swaps with
+    the neighbouring tile, SUPER + P toggles pseudo-tiling, SUPER + T flips
+    the dwindle split axis, and SUPER + TAB cycles the workspace windows.
+  * Add workspace navigation for a tenth workspace and for the pointer:
+    SUPER + 0 reaches workspace 10, and scrolling with SUPER walks the
+    existing workspaces in either direction.
+  * Enable touchpad tap-to-click, natural scrolling, middle-button emulation
+    and disable-while-typing, and add a three-finger horizontal swipe for
+    workspace switching. Hyprland leaves tap-to-click off, which made a
+    laptop panel feel broken.
+  * Bind Print to a full-screen capture and SUPER + N to the notification
+    centre, so both are reachable without remembering the utility name.
+  * Float the application hub, the sync panel, the audio mixer and the
+    Bluetooth manager at their designed sizes instead of tiling them.
+  * Add a StatusNotifier tray to Waybar so applications that expose only a
+    tray icon stay reachable.
+  * Offer the installer from the system menu on the live medium only, gated
+    on /run/live, so the image has a discoverable install path without
+    leaving a dead entry on installed systems.
+  * Keep a successful screenshot successful when the clipboard or the
+    notification daemon is unavailable, instead of exiting non-zero.
+  * Align the panel idle default with the shipped hypridle listener at ten
+    minutes, so the settings view cannot report a timeout the session does
+    not honour.
+  * Depend on qt6ct for the Qt palette hyprland.lua already selects, on
+    upower for battery reporting, and on mpv with video and audio MIME
+    handlers for media playback.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Fri, 27 Nov 2026 22:10:00 +0530
+
 fluorine-desktop (0.15.1) trixie; urgency=medium
 
   * Fix flr-sync GUI restore confirmation, worker error recovery, Btrfs
