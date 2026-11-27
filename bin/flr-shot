@@ -7,7 +7,7 @@ readonly output_dir="${HOME}/Pictures/Screenshots"
 usage() {
     printf 'Usage: %s [--full]\n\n' "${program}"
     printf 'Capture the full screen with --full, or select a region interactively.\n'
-    printf 'The PNG is written to %s and copied to the clipboard.\n' "${output_dir}"
+    printf 'The PNG is written to %s , and copied to the clipboard when a clipboard tool is available.\n' "${output_dir}"
 }
 
 die() {
@@ -32,7 +32,7 @@ case "${1:-}" in
         ;;
 esac
 
-for tool in grim wl-copy notify-send; do
+for tool in grim wl-copy; do
     command -v "${tool}" >/dev/null 2>&1 || die "required tool not found: ${tool}"
 done
 
@@ -57,7 +57,15 @@ else
     grim -g "${geometry}" "${output}"
 fi
 
-wl-copy <"${output}"
-notify-send --app-name="${program}" "Screenshot saved" "${output}"
+# The PNG is the deliverable. A missing clipboard owner or notification
+# daemon must not turn a successful capture into a failed command, because
+# the keybinding would then look broken even though the file exists.
+if ! wl-copy <"${output}"; then
+    printf '%s: could not copy the screenshot to the clipboard\n' "${program}" >&2
+fi
+
+if command -v notify-send >/dev/null 2>&1; then
+    notify-send --app-name="${program}" "Screenshot saved" "${output}" 2>/dev/null || true
+fi
 
 printf '%s\n' "${output}"
