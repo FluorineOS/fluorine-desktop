@@ -132,6 +132,36 @@ else
     tagged WARN "Rendering" "software (${render_nodes} render node)"
 fi
 
+# Firmware coverage is reported per vendor directory, because a missing blob is
+# what turns a supported driver into a device that never appears.
+firmware_vendors=""
+for vendor in i915 xe amdgpu nvidia intel iwlwifi rtw88 rtw89; do
+    [ -e "/lib/firmware/${vendor}" ] || continue
+    firmware_vendors="${firmware_vendors:+${firmware_vendors} }${vendor}"
+done
+
+if [ -n "${firmware_vendors}" ]; then
+    tagged OK "Firmware" "blobs for ${firmware_vendors}"
+else
+    tagged WARN "Firmware" "no GPU or radio blobs in /lib/firmware"
+fi
+
+if command -v vainfo >/dev/null 2>&1; then
+    if va_output="$(vainfo 2>/dev/null)"; then
+        if printf '%s\n' "${va_output}" | grep -q 'VAProfileH264'; then
+            va_driver="$(printf '%s\n' "${va_output}" |
+                awk -F': ' '/vainfo: Driver version/ { print $2; exit }')"
+            tagged OK "VA-API" "H.264 decode (${va_driver:-driver unknown})"
+        else
+            tagged WARN "VA-API" "driver present, no H.264 profile"
+        fi
+    else
+        tagged WARN "VA-API" "no usable VA driver"
+    fi
+else
+    tagged INFO "VA-API" "vainfo not installed"
+fi
+
 section "Audio and connectivity"
 
 if systemctl --user is-active --quiet pipewire 2>/dev/null; then
@@ -234,6 +264,45 @@ if ((backlight_found > 0)); then
     tagged OK "Backlight" "${backlight_found} device(s)"
 else
     tagged INFO "Backlight" "none detected"
+fi
+
+kbd_backlight_found=0
+for kbd_led in /sys/class/leds/*::kbd_backlight; do
+    [ -e "${kbd_led}" ] || continue
+    kbd_backlight_found=$((kbd_backlight_found + 1))
+done
+if ((kbd_backlight_found > 0)); then
+    tagged OK "Keyboard backlight" "${kbd_backlight_found} device(s)"
+else
+    tagged INFO "Keyboard backlight" "none detected"
+fi
+
+if command -v powerprofilesctl >/dev/null 2>&1; then
+    tagged OK "Power profile" "$(powerprofilesctl get 2>/dev/null || printf 'unknown')"
+else
+    tagged INFO "Power profile" "powerprofilesctl not installed"
+fi
+
+if [ -r /sys/power/state ] && grep -qw mem /sys/power/state; then
+    tagged OK "Suspend" "advertised in /sys/power/state"
+else
+    tagged WARN "Suspend" "not advertised in /sys/power/state"
+fi
+
+if command -v rfkill >/dev/null 2>&1; then
+    if rfkill_output="$(rfkill --noheadings --output TYPE,SOFT,HARD 2>/dev/null)"; then
+        blocked_radios="$(printf '%s\n' "${rfkill_output}" |
+            awk '$2 == "blocked" || $3 == "blocked" { count++ } END { print count + 0 }')"
+        if ((blocked_radios > 0)); then
+            tagged WARN "rfkill" "${blocked_radios} blocked radio(s)"
+        else
+            tagged OK "rfkill" "no blocked radios"
+        fi
+    else
+        tagged INFO "rfkill" "no radios reported"
+    fi
+else
+    tagged INFO "rfkill" "not installed"
 fi
 
 section "System services"
