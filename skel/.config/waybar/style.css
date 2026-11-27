@@ -52,6 +52,22 @@ window#waybar {
     color: #6e7681;
 }
 
+/* StatusNotifier items share the bar slot rhythm: a 16px icon inside the
+   same hairline as every other module. The icons keep their own colours,
+   because a tray cannot be recoloured without breaking app identity. */
+#tray {
+    padding: 0 8px;
+    border-bottom: 1.5px solid #1c2229;
+}
+
+#tray > .passive {
+    -gtk-icon-effect: dim;
+}
+
+#tray > .needs-attention {
+    border-bottom-color: #b4f03a;
+}
+
 /* Standalone icon modules pair with the native status module that follows
    them. The SVG is drawn as a CSS background because this Waybar build has
    no inline icon module keys. */

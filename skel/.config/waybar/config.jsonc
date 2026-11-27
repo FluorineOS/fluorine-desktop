@@ -6,6 +6,7 @@
     "modules-left": ["hyprland/workspaces", "hyprland/window"],
     "modules-center": ["custom/icon-clock", "clock"],
     "modules-right": [
+        "tray",
         "custom/mode",
         "custom/system",
         "custom/power",
@@ -34,6 +35,11 @@
         "format": "{title}",
         "max-length": 60,
         "separate-outputs": true
+    },
+
+    "tray": {
+        "icon-size": 14,
+        "spacing": 8
     },
 
     "pulseaudio": {
