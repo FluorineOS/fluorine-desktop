@@ -6,4 +6,4 @@
 gaps_in = 4
 gaps_out = 6
 border_size = 2
-idle_lock = 300
+idle_lock = 600

@@ -9,7 +9,10 @@ readonly hypridle_conf="${XDG_CONFIG_HOME:-${HOME}/.config}/hypr/hypridle.conf"
 readonly default_gaps_in=4
 readonly default_gaps_out=6
 readonly default_border=2
-readonly default_idle=300
+# The shipped hypridle listener locks at ten minutes; the panel default has
+# to agree with it or the settings view reports a timeout the session does not
+# honour.
+readonly default_idle=600
 
 gaps_in=${default_gaps_in}
 gaps_out=${default_gaps_out}
