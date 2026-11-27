@@ -260,19 +260,31 @@ for backlight in /sys/class/backlight/*; do
     [[ -e "${backlight}" ]] || continue
     backlight_found=$((backlight_found + 1))
 done
-if ((backlight_found > 0)); then
+backlight_writable=0
+for backlight in /sys/class/backlight/*; do
+    [ -e "${backlight}/brightness" ] || continue
+    [ -w "${backlight}/brightness" ] && backlight_writable=$((backlight_writable + 1))
+done
+
+if ((backlight_found > 0 && backlight_writable > 0)); then
     tagged OK "Backlight" "${backlight_found} device(s)"
+elif ((backlight_found > 0)); then
+    tagged WARN "Backlight" "present but not writable (missing video group)"
 else
     tagged INFO "Backlight" "none detected"
 fi
 
 kbd_backlight_found=0
+kbd_backlight_writable=0
 for kbd_led in /sys/class/leds/*::kbd_backlight; do
     [ -e "${kbd_led}" ] || continue
     kbd_backlight_found=$((kbd_backlight_found + 1))
+    [ -w "${kbd_led}/brightness" ] && kbd_backlight_writable=$((kbd_backlight_writable + 1))
 done
-if ((kbd_backlight_found > 0)); then
+if ((kbd_backlight_found > 0 && kbd_backlight_writable > 0)); then
     tagged OK "Keyboard backlight" "${kbd_backlight_found} device(s)"
+elif ((kbd_backlight_found > 0)); then
+    tagged WARN "Keyboard backlight" "present but not writable (missing input group)"
 else
     tagged INFO "Keyboard backlight" "none detected"
 fi
