@@ -1,3 +1,20 @@
+fluorine-desktop (0.16.0) trixie; urgency=medium
+
+  * Add keyboard backlight keys: XF86KbdBrightnessUp and
+    XF86KbdBrightnessDown call flr-osd, which discovers the vendor-specific LED
+    class device, raises or lowers it in ten percent steps, and reports the new
+    level in the same transient card the panel and volume keys use.
+  * Extend flr-doctor with the checks a laptop bring-up needs: the GPU and
+    radio firmware directories, VA-API decode profiles through vainfo, the
+    keyboard backlight device, the active power profile, suspend support, and
+    blocked radios reported by rfkill.
+  * Depend on brightness-udev so the session user can write the panel and
+    keyboard backlight without root, on pipewire-alsa for ALSA-only
+    applications, on udisks2 for the Thunar volume manager, and on qt6-wayland
+    so Qt applications run natively instead of through XWayland.
+
+ -- gowthvm <gowthamgkofficial@gmail.com>  Fri, 27 Nov 2026 23:40:00 +0530
+
 fluorine-desktop (0.15.2) trixie; urgency=medium
 
   * Add the pointer and keyboard window controls a tiling workflow needs:
