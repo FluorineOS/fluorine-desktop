@@ -5,6 +5,6 @@ Comment=Declarative dotfile and state manager for FluorineOS
 Exec=flr-sync --gui
 Icon=flr-ctl
 Terminal=false
-Categories=Utility;Development;
+Categories=Utility;FileTools;
 Keywords=sync;dotfiles;backup;restore;state;configs;
 StartupWMClass=org.fluorineos.Sync

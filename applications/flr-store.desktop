@@ -5,6 +5,6 @@ Comment=Curated application hub for developer tools, browsers, and media
 Exec=flr-store
 Icon=flr-ctl
 Terminal=false
-Categories=Utility;Development;
+Categories=Settings;PackageManager;
 Keywords=store;apps;install;software;development;browse;media;
 StartupWMClass=org.fluorineos.Store

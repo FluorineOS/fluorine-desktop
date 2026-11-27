@@ -5,6 +5,6 @@ Comment=Configure appearance, workstation mode, displays, network, audio, and sy
 Exec=flr-settings
 Icon=flr-settings
 Terminal=false
-Categories=Settings;System;
+Categories=Settings;
 Keywords=settings;control;appearance;wallpaper;shader;display;network;audio;snapshot;
 StartupWMClass=org.fluorineos.Settings
